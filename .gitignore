@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Database (tùy chọn - có thể bỏ dòng này nếu muốn lưu DB)
+# Data/*.db
+
+# AI Model (file lớn)
+AI/model/*.h5
+AI/model/plots/
+
+# OS
+.DS_Store
+Thumbs.db
