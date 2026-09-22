@@ -1,0 +1,38 @@
+{
+  "features": [
+    "temperature",
+    "temperature_d1",
+    "temperature_d2",
+    "temperature_d3",
+    "temperature_d6",
+    "temperature_d12",
+    "temperature_mean6",
+    "temperature_std6",
+    "humidity",
+    "humidity_d1",
+    "humidity_d2",
+    "humidity_d3",
+    "humidity_d6",
+    "humidity_d12",
+    "humidity_mean6",
+    "humidity_std6",
+    "log_light",
+    "log_light_d1",
+    "log_light_d2",
+    "log_light_d3",
+    "log_light_d6",
+    "log_light_d12",
+    "log_light_mean6",
+    "log_light_std6",
+    "light_sat6",
+    "hour_sin",
+    "hour_cos"
+  ],
+  "step": "5min",
+  "horizon_steps": 6,
+  "targets": [
+    "temperature",
+    "humidity",
+    "log_light"
+  ]
+}
