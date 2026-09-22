@@ -513,11 +513,12 @@ void handleApiStatus() {
   doc["fan_mode"]        = g_fanMode;
   doc["fan_speed"]       = g_fanSpeed;
   doc["fan_pwm"]         = g_fanPWM;
-  doc["fan_setpoint"]    = pidSetpoint;
-  doc["fan_running"]     = g_fanRunning;
+  doc["fan_setpoint"]    = g_fanSetpoint;
   doc["pump_running"]    = g_pumpRunning;
   doc["pump_manual"]     = g_pumpManual;
   doc["pump_start_s"]    = g_pumpRunning ? (millis() - g_pumpStart) / 1000 : 0;
+  doc["pump_on"]         = g_pumpOnThresh;
+  doc["pump_off"]        = g_pumpOffThresh;
   doc["sht30_ok"]        = g_sht30OK;
   doc["bh1750_ok"]       = g_bh1750OK;
   doc["wifi_rssi"]       = g_wifiOK ? WiFi.RSSI() : 0;

@@ -400,7 +400,7 @@
     updateBadge('pump-badge', pr?'ON':'OFF', pr?'bg-cyan-500/10 text-cyan-400 border-cyan-500/30':'bg-slate-700/50 text-slate-500 border-slate-600/50');
     
     document.getElementById('pump-mode').textContent = d.pump_manual?'TAY':'AUTO';
-    document.getElementById('pump-time').textContent = pr?Math.round((Date.now()/1000)-d.pump_start_s)+'s':'--';
+    document.getElementById('pump-time').textContent = pr ? d.pump_start_s + 's' : '--';
     document.getElementById('p-on-v').textContent = d.pump_on;
     document.getElementById('p-off-v').textContent = d.pump_off;
     const isEditingPump = ['cfg-p-on', 'cfg-p-off'].includes(document.activeElement.id);
