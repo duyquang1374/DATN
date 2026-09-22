@@ -403,8 +403,11 @@
     document.getElementById('pump-time').textContent = pr?Math.round((Date.now()/1000)-d.pump_start_s)+'s':'--';
     document.getElementById('p-on-v').textContent = d.pump_on;
     document.getElementById('p-off-v').textContent = d.pump_off;
-    if(document.activeElement.id !== 'cfg-p-on') document.getElementById('cfg-p-on').value = d.pump_on;
-    if(document.activeElement.id !== 'cfg-p-off') document.getElementById('cfg-p-off').value = d.pump_off;
+    const isEditingPump = ['cfg-p-on', 'cfg-p-off'].includes(document.activeElement.id);
+    if(!isEditingPump) {
+      document.getElementById('cfg-p-on').value = d.pump_on;
+      document.getElementById('cfg-p-off').value = d.pump_off;
+    }
 
     let pIdx = 0; // auto
     if(d.pump_manual) pIdx = pr ? 1 : 2;
