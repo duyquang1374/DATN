@@ -22,23 +22,25 @@ int g_soilRawADC = 0;
 //  KHỞI TẠO CẢM BIẾN
 // ═══════════════════════════════════════════════════════════════
 void initSensors() {
-  // ─ SHT30 ─
-  // Địa chỉ I2C: 0x44 (chân ADDR=GND, mặc định) hoặc 0x45 (ADDR=VCC)
-  if (sht30.begin(0x44)) {
+  // ─ SHT30 Trong Nhà (I2C 1) ─
+  if (sht30.begin(0x44) || sht30.begin(0x45)) {
     sht30.heater(false);
     g_sht30OK = true;
-    Serial.println(F("[SHT30]  Init OK  (addr=0x44)"));
-  } else if (sht30.begin(0x45)) {
-    sht30.heater(false);
-    g_sht30OK = true;
-    Serial.println(F("[SHT30]  Init OK  (addr=0x45)"));
+    Serial.println(F("[SHT30 IN] Init OK"));
   } else {
     g_sht30OK = false;
-    Serial.println(F("[SHT30]  FAILED! Kiem tra:"));
-    Serial.println(F("  - Day SDA->21  SCL->22 dung chua?"));
-    Serial.println(F("  - Nguon 3.3V du chua?"));
-    Serial.println(F("  - Pull-up 4.7k tren SDA/SCL chua?"));
-    Serial.println(F("  -> Goi scanI2C() de quet dia chi I2C"));
+    Serial.println(F("[SHT30 IN] FAILED!"));
+  }
+
+  // ─ SHT30 Ngoài Trời (I2C 2) ─
+  I2C_Ext.begin(I2C_SDA_EXT, I2C_SCL_EXT, 100000);
+  if (sht30_ext.begin(0x44)) {
+    sht30_ext.heater(false);
+    g_sht30ExtOK = true;
+    Serial.println(F("[SHT30 OUT] Init OK"));
+  } else {
+    g_sht30ExtOK = false;
+    Serial.println(F("[SHT30 OUT] FAILED!"));
   }
 
   // SHT30 Warm-up: cảm biến cần ~0.5s để ổn định sau khi cấp nguồn.
@@ -46,10 +48,14 @@ void initSensors() {
   // Giải pháp: đọc dummy lần đầu và bỏ qua
   if (g_sht30OK) {
     delay(500);                  // Đợi cảm biến khởi động
-    sht30.readTemperature();     // Dummy read — bỏ qua kết quả
+    sht30.readTemperature();
     sht30.readHumidity();
-    delay(100);
-    Serial.println(F("[SHT30]  Warm-up OK"));
+    Serial.println(F("[SHT30 IN] Warm-up OK"));
+  }
+  if (g_sht30ExtOK) {
+    sht30_ext.readTemperature();
+    sht30_ext.readHumidity();
+    Serial.println(F("[SHT30 OUT] Warm-up OK"));
   }
 
   // ─ BH1750 ─
@@ -120,41 +126,50 @@ float readSoilMoisture() {
 void readSensors() {
   Serial.println(F("──────────── Sensor Reading ────────────"));
 
-  // ─ SHT30 ─
+  // ─ SHT30 Trong Nhà ─
   if (g_sht30OK) {
     float t = sht30.readTemperature();
     float h = sht30.readHumidity();
-
-    // -45.0 = raw 0x0000 = loi CRC cua SHT30, phai reject (> -44 de chac)
     bool tOK = !isnan(t) && t > -44.0f && t >= TEMP_MIN && t <= TEMP_MAX;
     bool hOK = !isnan(h) && h >= HUMID_MIN && h <= HUMID_MAX;
-
     if (tOK && hOK) {
       g_temperature  = t;
       g_humidity     = h;
       g_sensorErrors = 0;
-      Serial.printf("[SHT30]  T=%.2f*C  H=%.2f%%  OK\n", t, h);
+      Serial.printf("[SHT30 IN]  T=%.2f*C  H=%.2f%%  OK\n", t, h);
     } else {
       g_sensorErrors++;
-      Serial.printf("[SHT30]  LOI #%d: T=%s(%.2f)  H=%s(%.2f)\n",
-                    g_sensorErrors,
-                    tOK ? "OK" : "NG", isnan(t) ? -999.0f : t,
-                    hOK ? "OK" : "NG", isnan(h) ? -999.0f : h);
-      // Thử reinit nếu quá nhiều lỗi
+      Serial.printf("[SHT30 IN]  LOI: T=%.2f H=%.2f\n", t, h);
       if (g_sensorErrors >= MAX_SENSOR_ERRORS) {
-        Serial.println(F("[SHT30]  Thu reinit..."));
         g_sht30OK = sht30.begin(0x44) || sht30.begin(0x45);
         g_sensorErrors = 0;
       }
     }
   } else {
-    // Thử reinit mỗi lần đọc nếu init ban đầu thất bại
     if (sht30.begin(0x44) || sht30.begin(0x45)) {
       sht30.heater(false);
       g_sht30OK = true;
-      Serial.println(F("[SHT30]  Reinit thanh cong!"));
+    }
+  }
+
+  // ─ SHT30 Ngoài Trời ─
+  if (g_sht30ExtOK) {
+    float t = sht30_ext.readTemperature();
+    float h = sht30_ext.readHumidity();
+    bool tOK = !isnan(t) && t > -44.0f && t >= TEMP_MIN && t <= TEMP_MAX;
+    bool hOK = !isnan(h) && h >= HUMID_MIN && h <= HUMID_MAX;
+    if (tOK && hOK) {
+      g_tempExt  = t;
+      g_humidExt = h;
+      Serial.printf("[SHT30 OUT] T=%.2f*C  H=%.2f%%  OK\n", t, h);
     } else {
-      Serial.println(F("[SHT30]  OFFLINE"));
+      Serial.printf("[SHT30 OUT] LOI: T=%.2f H=%.2f\n", t, h);
+      g_sht30ExtOK = sht30_ext.begin(0x44);
+    }
+  } else {
+    if (sht30_ext.begin(0x44)) {
+      sht30_ext.heater(false);
+      g_sht30ExtOK = true;
     }
   }
 

@@ -22,7 +22,7 @@ void initDataLogger() {
   if (!LittleFS.exists(CSV_FILE)) {
     File f = LittleFS.open(CSV_FILE, "w");
     if (f) {
-      f.println(F("timestamp,temperature,humidity,light,soil,fan_mode,fan_speed,pump"));
+      f.println(F("timestamp,temperature,humidity,light,soil,fan_mode,fan_speed,pump,temp_ext,humid_ext"));
       f.close();
       Serial.println("[FS] Tạo file CSV mới ✓");
     } else {
@@ -67,17 +67,19 @@ void saveToCSV() {
   float h = round(g_humidity     * 10) / 10.0f;
   float l = round(g_lightLux);
   float s = round(g_soilMoisture * 10) / 10.0f;
+  float te = isnan(g_tempExt) ? 0 : round(g_tempExt * 10) / 10.0f;
+  float he = isnan(g_humidExt) ? 0 : round(g_humidExt * 10) / 10.0f;
 
   // Ghi dòng CSV
   File f = LittleFS.open(CSV_FILE, "a");
   if (f) {
-    f.printf("%s,%.1f,%.1f,%.0f,%.1f,%d,%d,%d\n",
+    f.printf("%s,%.1f,%.1f,%.0f,%.1f,%d,%d,%d,%.1f,%.1f\n",
              timeStr, t, h, l, s,
-             g_fanMode, g_fanSpeed, g_pumpRunning ? 1 : 0);
+             g_fanMode, g_fanSpeed, g_pumpRunning ? 1 : 0, te, he);
     f.close();
     g_totalRecords++;
-    Serial.printf("[FS] Saved #%lu  T=%.1f H=%.1f Lux=%.0f Soil=%.0f\n",
-                  g_totalRecords, t, h, l, s);
+    Serial.printf("[FS] Saved #%lu  T=%.1f H=%.1f Te=%.1f He=%.1f\n",
+                  g_totalRecords, t, h, te, he);
   } else {
     Serial.println("[FS] Ghi CSV thất bại!");
   }

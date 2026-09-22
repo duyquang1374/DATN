@@ -520,6 +520,9 @@ void handleApiStatus() {
   doc["pump_on"]         = g_pumpOnThresh;
   doc["pump_off"]        = g_pumpOffThresh;
   doc["sht30_ok"]        = g_sht30OK;
+  doc["sht30_ext_ok"]    = g_sht30ExtOK;
+  doc["temp_ext"]        = isnan(g_tempExt) ? 0 : round(g_tempExt * 10.0f) / 10.0f;
+  doc["humid_ext"]       = isnan(g_humidExt) ? 0 : round(g_humidExt * 10.0f) / 10.0f;
   doc["bh1750_ok"]       = g_bh1750OK;
   doc["wifi_rssi"]       = g_wifiOK ? WiFi.RSSI() : 0;
   doc["ip"]              = g_wifiOK ? WiFi.localIP().toString() : "0.0.0.0";

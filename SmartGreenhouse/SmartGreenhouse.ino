@@ -35,7 +35,9 @@
 #include "forecast.h"
 
 // ─── Đối tượng phần cứng ────────────────────────────────────
+TwoWire           I2C_Ext = TwoWire(1);
 Adafruit_SHT31    sht30;
+Adafruit_SHT31    sht30_ext(&I2C_Ext);
 BH1750            lightMeter;
 LiquidCrystal_I2C lcd(LCD_ADDR, LCD_COLS, LCD_ROWS);
 WiFiClient        espClient;
@@ -54,9 +56,12 @@ PID fanPID(&pidInput, &pidOutput, &pidSetpoint,
 // ─── Dữ liệu cảm biến ────────────────────────────────────────
 float g_temperature  = NAN;
 float g_humidity     = NAN;
+float g_tempExt      = NAN;
+float g_humidExt     = NAN;
 float g_lightLux     = NAN;
 float g_soilMoisture = NAN;   // 0–100 %
 bool  g_sht30OK      = false;
+bool  g_sht30ExtOK   = false;
 bool  g_bh1750OK     = false;
 int   g_sensorErrors = 0;
 
