@@ -582,11 +582,10 @@
       setTimeout(() => btn.classList.remove('opacity-50', 'pointer-events-none'), 3000);
     }
 
-    // Poll nhanh 3 lần sau khi gửi lệnh (1s, 2s, 4s) để cập nhật UI sớm nhất có thể
+    // Poll sau khi gửi lệnh: 1.5s, 4s (đủ thời gian LoRa truyền về)
     function fastPoll() {
-      setTimeout(fetchStatus, 1000);
-      setTimeout(fetchStatus, 2500);
-      setTimeout(fetchStatus, 5000);
+      setTimeout(fetchStatus, 1500);
+      setTimeout(fetchStatus, 4000);
     }
 
     async function ctrl(params, btnId) {

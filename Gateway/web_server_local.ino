@@ -124,6 +124,23 @@ void handleApiControl() {
     String loraStr;
     serializeJson(loraDoc, loraStr);
     sendLoRaCommand(loraStr);
+
+    // ─── Cập nhật trạng thái Gateway ngay lập tức (không đợi Node xác nhận) ───
+    // Điều này đảm bảo Web poll 1 giây sau sẽ nhận được state đúng
+    String cmd = loraDoc["cmd"].as<String>();
+    if (cmd == "pump_on")   { g_pumpRunning = true;  }
+    if (cmd == "pump_off")  { g_pumpRunning = false; }
+    if (cmd == "pump_auto") { /* giữ state hiện tại, để Node quyết định */ }
+    if (cmd == "fan") {
+      if (loraDoc.containsKey("mode"))     g_fanMode     = loraDoc["mode"];
+      if (loraDoc.containsKey("speed"))    g_fanSpeed    = map((int)loraDoc["speed"], 0, 255, 0, 100);
+      if (loraDoc.containsKey("setpoint")) g_fanSetpoint = loraDoc["setpoint"];
+    }
+    if (cmd == "config") {
+      if (loraDoc.containsKey("pump_on"))  g_pumpOnThresh  = loraDoc["pump_on"];
+      if (loraDoc.containsKey("pump_off")) g_pumpOffThresh = loraDoc["pump_off"];
+    }
+
     webServer.send(200, "application/json", "{\"status\":\"success\"}");
   } else {
     webServer.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"Unknown params\"}");
