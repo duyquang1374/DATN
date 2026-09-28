@@ -95,14 +95,12 @@ void checkLoRaCommand() {
       // -- Bơm --
       if (cmd == "pump_on") {
         g_pumpManual = true;
-        g_pumpRunning = true;
-        g_pumpStart = millis();
+        setPumpState(true);
         Serial.println("[LoRa] CMD: Bật bơm");
       } 
       else if (cmd == "pump_off") {
         g_pumpManual = true;
-        g_pumpRunning = false;
-        g_pumpStart = 0;
+        setPumpState(false);
         Serial.println("[LoRa] CMD: Tắt bơm");
       } 
       else if (cmd == "pump_auto") {

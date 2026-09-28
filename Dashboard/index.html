@@ -492,7 +492,7 @@
 
       document.getElementById('val-soil').textContent = d.soil.toFixed(0);
       const s = d.soil;
-      updateBadge('st-soil', s < d.pump_on ? '🔴 Bơm Đang Bật' : s < d.pump_off ? '🟡 Thấp' : '🟢 Đủ ẩm', s < d.pump_on ? 'bg-red-500/10 text-red-400 border-red-500/30' : s < d.pump_off ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
+      updateBadge('st-soil', s < d.pump_on ? '🔴 Quá khô' : s < d.pump_off ? '🟡 Thấp' : '🟢 Đủ ẩm', s < d.pump_on ? 'bg-red-500/10 text-red-400 border-red-500/30' : s < d.pump_off ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
 
       // Fan
       document.getElementById('fan-speed').textContent = d.fan_speed;
@@ -512,6 +512,16 @@
       stEl.textContent = pr ? 'BẬT' : 'TẮT';
       stEl.className = `text-2xl font-bold ${pr ? 'text-cyan-400' : 'text-slate-500'}`;
       updateBadge('pump-badge', pr ? 'ON' : 'OFF', pr ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+      
+      // Update pump buttons
+      const pModes = ['btn-pump-auto', 'btn-pump-on', 'btn-pump-off'];
+      pModes.forEach(id => {
+        const b = document.getElementById(id);
+        if(b) { b.classList.remove('bg-indigo-500/20','text-indigo-400','border-indigo-500/50'); b.classList.add('bg-slate-800','text-slate-400','border-slate-600/50'); }
+      });
+      const activeBtnId = !d.pump_manual ? 'btn-pump-auto' : (pr ? 'btn-pump-on' : 'btn-pump-off');
+      const ab = document.getElementById(activeBtnId);
+      if(ab) { ab.classList.add('bg-indigo-500/20','text-indigo-400','border-indigo-500/50'); ab.classList.remove('bg-slate-800','text-slate-400','border-slate-600/50'); }
 
       document.getElementById('pump-mode').textContent = d.pump_manual ? 'TAY' : 'AUTO';
       document.getElementById('pump-time').textContent = pr ? d.pump_start_s + 's' : '--';
