@@ -187,11 +187,11 @@
 
           <!-- Mode Buttons -->
           <div class="grid grid-cols-3 gap-2 mb-4">
-            <button onclick="setFanMode(0)" id="btn-fan-0"
+            <button onclick="setFanMode(0,'btn-fan-0')" id="btn-fan-0"
               class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
-            <button onclick="setFanMode(1)" id="btn-fan-1"
+            <button onclick="setFanMode(1,'btn-fan-1')" id="btn-fan-1"
               class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
-            <button onclick="setFanMode(2)" id="btn-fan-2"
+            <button onclick="setFanMode(2,'btn-fan-2')" id="btn-fan-2"
               class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TAY</button>
           </div>
 
@@ -257,11 +257,11 @@
 
           <!-- Mode Buttons -->
           <div class="grid grid-cols-3 gap-2 mb-4">
-            <button onclick="setPump('auto')" id="btn-pump-auto"
+            <button onclick="setPump('auto','btn-pump-auto')" id="btn-pump-auto"
               class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
-            <button onclick="setPump('on')" id="btn-pump-on"
+            <button onclick="setPump('on','btn-pump-on')" id="btn-pump-on"
               class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
-            <button onclick="setPump('off')" id="btn-pump-off"
+            <button onclick="setPump('off','btn-pump-off')" id="btn-pump-off"
               class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
           </div>
         </div>
@@ -574,16 +574,66 @@
 
     // --- Actions ---
 
-    async function ctrl(params) {
-      try {
-        await fetch(espIp + '/api/control?' + new URLSearchParams(params));
-      } catch(e) { console.error('[ctrl]', e); }
-      setTimeout(fetchStatus, 400);
+    // Hiển thị trạng thái gửi lệnh ngay lập tức (Optimistic UI)
+    function showCmdSending(btnId) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.classList.add('opacity-50', 'pointer-events-none');
+      setTimeout(() => btn.classList.remove('opacity-50', 'pointer-events-none'), 3000);
     }
 
-    async function setFanMode(m)   { await ctrl({ fan_mode: m }); }
-    async function setFanSpeed(pwm){ await ctrl({ fan_speed: pwm }); }
-    async function setPump(m)      { await ctrl({ pump: m }); }
+    // Poll nhanh 3 lần sau khi gửi lệnh (1s, 2s, 4s) để cập nhật UI sớm nhất có thể
+    function fastPoll() {
+      setTimeout(fetchStatus, 1000);
+      setTimeout(fetchStatus, 2500);
+      setTimeout(fetchStatus, 5000);
+    }
+
+    async function ctrl(params, btnId) {
+      if (btnId) showCmdSending(btnId);
+      try {
+        const r = await fetch(espIp + '/api/control?' + new URLSearchParams(params));
+        if (!r.ok) console.warn('[ctrl] Gateway trả lỗi:', r.status);
+      } catch(e) {
+        console.error('[ctrl] Không kết nối được Gateway:', e);
+        setOffline();
+        return;
+      }
+      fastPoll();
+    }
+
+    async function setFanMode(m, btnId) {
+      // Cập nhật nút ngay lập tức
+      const modes = ['btn-fan-off', 'btn-fan-auto', 'btn-fan-manual'];
+      modes.forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.classList.remove('bg-indigo-500/20','text-indigo-400','border-indigo-500/50'); b.classList.add('bg-slate-800','text-slate-400','border-slate-600/50'); }
+      });
+      if (btnId) {
+        const b = document.getElementById(btnId);
+        if (b) { b.classList.add('bg-indigo-500/20','text-indigo-400','border-indigo-500/50'); b.classList.remove('bg-slate-800','text-slate-400','border-slate-600/50'); }
+      }
+      await ctrl({ fan_mode: m });
+    }
+
+    async function setFanSpeed(pwm) {
+      await ctrl({ fan_speed: pwm });
+    }
+
+    async function setPump(m, btnId) {
+      // Cập nhật UI bơm ngay lập tức
+      const pumpEl = document.getElementById('pump-state');
+      if (pumpEl) {
+        if (m === 'on')   { pumpEl.textContent = 'BẬT'; pumpEl.className = 'text-2xl font-bold text-emerald-400'; }
+        else if (m === 'off')  { pumpEl.textContent = 'TẮT'; pumpEl.className = 'text-2xl font-bold text-slate-500'; }
+        else if (m === 'auto') { pumpEl.textContent = 'AUTO'; pumpEl.className = 'text-2xl font-bold text-indigo-400'; }
+      }
+      const pumpMode = document.getElementById('pump-mode');
+      if (pumpMode) {
+        pumpMode.textContent = m === 'auto' ? 'AUTO' : m === 'on' ? 'THỦ CÔNG - BẬT' : 'THỦ CÔNG - TẮT';
+      }
+      await ctrl({ pump: m }, btnId);
+    }
 
     async function saveConfig(type) {
       if (type === 'fan') {
@@ -595,7 +645,6 @@
         await ctrl({ pump_on: on, pump_off: off });
       }
       alert('Đã lưu cấu hình!');
-      setTimeout(fetchStatus, 300);
     }
 
     function dlCSV() {
