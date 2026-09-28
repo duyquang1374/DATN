@@ -21,7 +21,7 @@ void setupWebServer() {
   });
 
   webServer.on("/api/status", HTTP_GET, handleApiStatus);
-  webServer.on("/api/control", HTTP_POST, handleApiControl);
+  webServer.on("/api/control", HTTP_GET, handleApiControl);
   webServer.on("/api/forecast", HTTP_GET, handleApiForecast);
   webServer.on("/download", HTTP_GET, handleDownloadCSV);
   webServer.on("/delete_csv", HTTP_POST, handleDeleteCSV);
@@ -77,67 +77,56 @@ void handleApiStatus() {
 
 void handleApiControl() {
   setCorsHeaders();
-  if (webServer.hasArg("plain") == false) {
-    webServer.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"No payload\"}");
-    return;
-  }
 
-  String body = webServer.arg("plain");
-  StaticJsonDocument<256> reqDoc;
-  DeserializationError err = deserializeJson(reqDoc, body);
-
-  if (err) {
-    webServer.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"JSON parse error\"}");
-    return;
-  }
-
-  // Chuyển lệnh từ Web -> Gateway -> JSON -> gửi qua LoRa -> Node
   StaticJsonDocument<256> loraDoc;
-  
-  if (reqDoc.containsKey("action")) {
-    String action = reqDoc["action"].as<String>();
-    
-    // -- Bơm --
-    if (action == "pump_on") {
-      loraDoc["cmd"] = "pump_on";
-    } 
-    else if (action == "pump_off") {
-      loraDoc["cmd"] = "pump_off";
-    } 
-    else if (action == "pump_auto") {
-      loraDoc["cmd"] = "pump_auto";
-    }
-    
-    // -- Quạt --
-    else if (action == "fan_mode") {
-      loraDoc["cmd"] = "fan";
-      loraDoc["mode"] = reqDoc["mode"].as<int>();
-    }
-    else if (action == "fan_speed") {
-      loraDoc["cmd"] = "fan";
-      loraDoc["speed"] = reqDoc["speed"].as<int>();
-    }
-    else if (action == "fan_setpoint") {
-      loraDoc["cmd"] = "fan";
-      loraDoc["setpoint"] = reqDoc["setpoint"].as<float>();
-    }
-    
-    // -- Cấu hình Bơm --
-    else if (action == "config_pump") {
-      loraDoc["cmd"] = "config";
-      loraDoc["pump_on"] = reqDoc["pump_on"].as<float>();
-      loraDoc["pump_off"] = reqDoc["pump_off"].as<float>();
-    }
+  bool hasCmd = false;
+
+  // -- Bơm --
+  if (webServer.hasArg("pump")) {
+    String val = webServer.arg("pump");
+    if (val == "on")   { loraDoc["cmd"] = "pump_on";   hasCmd = true; }
+    else if (val == "off")  { loraDoc["cmd"] = "pump_off";  hasCmd = true; }
+    else if (val == "auto") { loraDoc["cmd"] = "pump_auto"; hasCmd = true; }
   }
 
-  // Gửi lệnh qua LoRa nếu có
-  if (loraDoc.containsKey("cmd")) {
+  // -- Quạt mode --
+  if (webServer.hasArg("fan_mode")) {
+    loraDoc["cmd"]  = "fan";
+    loraDoc["mode"] = webServer.arg("fan_mode").toInt();
+    hasCmd = true;
+  }
+
+  // -- Quạt speed (manual) --
+  if (webServer.hasArg("fan_speed")) {
+    loraDoc["cmd"]   = "fan";
+    loraDoc["mode"]  = 2; // MANUAL
+    loraDoc["speed"] = webServer.arg("fan_speed").toInt();
+    hasCmd = true;
+  }
+
+  // -- Setpoint quạt Auto --
+  if (webServer.hasArg("setpoint")) {
+    loraDoc["cmd"]      = "fan";
+    loraDoc["mode"]     = 1; // AUTO
+    loraDoc["setpoint"] = webServer.arg("setpoint").toFloat();
+    hasCmd = true;
+  }
+
+  // -- Cấu hình ngưỡng bơm --
+  if (webServer.hasArg("pump_on") || webServer.hasArg("pump_off")) {
+    loraDoc["cmd"] = "config";
+    if (webServer.hasArg("pump_on"))  loraDoc["pump_on"]  = webServer.arg("pump_on").toFloat();
+    if (webServer.hasArg("pump_off")) loraDoc["pump_off"] = webServer.arg("pump_off").toFloat();
+    hasCmd = true;
+  }
+
+  if (hasCmd) {
     String loraStr;
     serializeJson(loraDoc, loraStr);
     sendLoRaCommand(loraStr);
     webServer.send(200, "application/json", "{\"status\":\"success\"}");
   } else {
-    webServer.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"Unknown action\"}");
+    webServer.send(400, "application/json", "{\"status\":\"error\",\"msg\":\"Unknown params\"}");
   }
 }
 

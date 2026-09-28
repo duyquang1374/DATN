@@ -574,29 +574,25 @@
 
     // --- Actions ---
 
-    async function setFanMode(m) {
-      await req(`/api/control?fan_mode=${m}`);
-      setTimeout(fetchStatus, 300);
+    async function ctrl(params) {
+      try {
+        await fetch(espIp + '/api/control?' + new URLSearchParams(params));
+      } catch(e) { console.error('[ctrl]', e); }
+      setTimeout(fetchStatus, 400);
     }
 
-    async function setFanSpeed(pwm) {
-      await req(`/api/control?fan_speed=${pwm}`);
-      setTimeout(fetchStatus, 300);
-    }
-
-    async function setPump(m) {
-      await req(`/api/control?pump=${m}`);
-      setTimeout(fetchStatus, 300);
-    }
+    async function setFanMode(m)   { await ctrl({ fan_mode: m }); }
+    async function setFanSpeed(pwm){ await ctrl({ fan_speed: pwm }); }
+    async function setPump(m)      { await ctrl({ pump: m }); }
 
     async function saveConfig(type) {
       if (type === 'fan') {
         const sp = document.getElementById('cfg-fan').value;
-        await req(`/api/control?setpoint=${sp}`);
+        await ctrl({ setpoint: sp });
       } else {
-        const on = document.getElementById('cfg-p-on').value;
+        const on  = document.getElementById('cfg-p-on').value;
         const off = document.getElementById('cfg-p-off').value;
-        await req(`/api/control?pump_on=${on}&pump_off=${off}`);
+        await ctrl({ pump_on: on, pump_off: off });
       }
       alert('Đã lưu cấu hình!');
       setTimeout(fetchStatus, 300);
