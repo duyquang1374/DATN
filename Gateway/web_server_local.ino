@@ -128,9 +128,9 @@ void handleApiControl() {
     // ─── Cập nhật trạng thái Gateway ngay lập tức (không đợi Node xác nhận) ───
     // Điều này đảm bảo Web poll 1 giây sau sẽ nhận được state đúng
     String cmd = loraDoc["cmd"].as<String>();
-    if (cmd == "pump_on")   { g_pumpRunning = true;  }
-    if (cmd == "pump_off")  { g_pumpRunning = false; }
-    if (cmd == "pump_auto") { /* giữ state hiện tại, để Node quyết định */ }
+    if (cmd == "pump_on")   { g_pumpRunning = true;  g_pumpManual = true; }
+    if (cmd == "pump_off")  { g_pumpRunning = false; g_pumpManual = true; }
+    if (cmd == "pump_auto") { g_pumpManual = false; }
     if (cmd == "fan") {
       if (loraDoc.containsKey("mode"))     g_fanMode     = loraDoc["mode"];
       if (loraDoc.containsKey("speed"))    g_fanSpeed    = map((int)loraDoc["speed"], 0, 255, 0, 100);

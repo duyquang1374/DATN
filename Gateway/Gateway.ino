@@ -37,6 +37,7 @@ int   g_fanPWM       = 0;
 float g_fanSetpoint  = 30.0;
 
 bool  g_pumpRunning  = false;
+bool  g_pumpManual   = false;
 float g_pumpOnThresh = 40.0;
 float g_pumpOffThresh= 80.0;
 
