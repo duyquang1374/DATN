@@ -11,24 +11,11 @@
 #pragma once
 
 // ─────────────────────────────────────────────────────────────
-//  WIFI
+//  LORA E32 (UART2)
 // ─────────────────────────────────────────────────────────────
-#define WIFI_SSID        "Xoi Banh My Chi Nga"
-#define WIFI_PASSWORD    "13071982"
-
-// ─────────────────────────────────────────────────────────────
-//  MQTT
-// ─────────────────────────────────────────────────────────────
-#define MQTT_ENABLED     true
-#define MQTT_SERVER      "192.168.1.227"
-#define MQTT_PORT        1883
-#define MQTT_CLIENT_ID   "ESP32_SmartGreenhouse_v2"
-
-// MQTT Topics
-#define MQTT_TOPIC_SENSOR   "greenhouse/sensor"
-#define MQTT_TOPIC_FAN      "greenhouse/fan"
-#define MQTT_TOPIC_PUMP     "greenhouse/pump"
-#define MQTT_TOPIC_FORECAST "greenhouse/forecast"
+#define LORA_TX_PIN      18
+#define LORA_RX_PIN      19
+#define LORA_BAUD        115200
 
 // ─────────────────────────────────────────────────────────────
 //  I2C BUS (Chung cho SHT30 trong nhà, BH1750, LCD)

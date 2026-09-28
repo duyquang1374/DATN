@@ -15,22 +15,20 @@
  *
  *  Phần cứng:
  *    - ESP32 DevKit
- *    - SHT30 → I2C (SDA: GPIO 21, SCL: GPIO 22)
- *    - BH1750 → I2C (SDA: GPIO 21, SCL: GPIO 22)
+ *    - DHT11 → GPIO 4
+ *    - MH Sensor (Ánh sáng) → GPIO 34 (Analog)
  *    - LED_BUILTIN → GPIO 2
  *
  *  Libraries cần cài (Arduino IDE → Library Manager):
- *    - Adafruit SHT31 Library (by Adafruit)
- *    - BH1750 (by Christopher Laws)
+ *    - DHT sensor library (by Adafruit)
  *    - PubSubClient (Nick O'Leary)
  *    - ArduinoJson (Benoit Blanchon)
  *    - LittleFS (built-in ESP32)
  * ============================================================
  */
 
-#include <Adafruit_SHT31.h>
+#include <DHT.h>
 #include <ArduinoJson.h>
-#include <BH1750.h>
 #include <LittleFS.h>
 #include <PubSubClient.h>
 #include <WebServer.h>
@@ -51,7 +49,12 @@
 #define MQTT_TOPIC "greenhouse/sensor"
 #define MQTT_CLIENT_ID "ESP32_Greenhouse"
 
-// --- I2C Pins ---
+// --- Sensor Pins ---
+#define DHTPIN 4
+#define DHTTYPE DHT11
+#define LIGHT_SENSOR_PIN 34 // Pin Analog cho MH Sensor
+
+// --- I2C Pins (Dành cho các module khác nếu có) ---
 #define I2C_SDA 21
 #define I2C_SCL 22
 
@@ -76,8 +79,7 @@
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
-Adafruit_SHT31 sht30 = Adafruit_SHT31(); // SHT30
-BH1750 lightMeter;
+DHT dht(DHTPIN, DHTTYPE); // DHT11
 WebServer server(80);
 
 // ======================== VARIABLES ========================
@@ -105,7 +107,7 @@ void setup() {
   Serial.println();
   Serial.println("============================================");
   Serial.println("  NHÀ MÀNG THÔNG MINH - ESP32 GATEWAY v3");
-  Serial.println("  SHT30 + BH1750 | Tự lưu + Web Server");
+  Serial.println("  DHT11 + MH Sensor | Tự lưu + Web Server");
   Serial.println("============================================");
 
   pinMode(LED_PIN, OUTPUT);
@@ -115,20 +117,13 @@ void setup() {
   Wire.begin(I2C_SDA, I2C_SCL);
   Serial.println("[I2C] SDA=" + String(I2C_SDA) + " SCL=" + String(I2C_SCL));
 
-  // SHT30
-  if (sht30.begin(0x44)) { // Địa chỉ mặc định SHT30 = 0x44
-    Serial.println("[SHT30] Init OK ✓");
-    sht30.heater(false); // Tắt heater
-  } else {
-    Serial.println("[SHT30] Init FAILED! Kiểm tra kết nối I2C.");
-  }
+  // DHT11
+  dht.begin();
+  Serial.println("[DHT11] Init OK ✓");
 
-  // BH1750
-  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
-    Serial.println("[BH1750] Init OK ✓");
-  } else {
-    Serial.println("[BH1750] Init FAILED! Kiểm tra kết nối I2C.");
-  }
+  // MH Sensor
+  pinMode(LIGHT_SENSOR_PIN, INPUT);
+  Serial.println("[MH-Sensor] Init OK ✓");
 
   // LittleFS
   if (!LittleFS.begin(true)) { // true = format if failed
@@ -480,9 +475,9 @@ void handleDelete() {
 // ======================== SENSOR & STORAGE ========================
 
 void readAndSave() {
-  // === Đọc SHT30 ===
-  float temperature = sht30.readTemperature();
-  float humidity = sht30.readHumidity();
+  // === Đọc DHT11 ===
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
 
   if (isnan(temperature) || isnan(humidity)) {
     sensorErrorCount++;
@@ -491,37 +486,43 @@ void readAndSave() {
   }
 
   if (sensorErrorCount > 0) {
-    Serial.println("[SHT30] Read error! (" + String(sensorErrorCount) + "/" +
+    Serial.println("[DHT11] Read error! (" + String(sensorErrorCount) + "/" +
                    String(MAX_SENSOR_ERRORS) + ")");
     if (sensorErrorCount >= MAX_SENSOR_ERRORS) {
-      Serial.println("[SHT30] TOO MANY ERRORS! Check wiring.");
+      Serial.println("[DHT11] TOO MANY ERRORS! Check wiring.");
     }
   }
 
-  // === Đọc BH1750 ===
-  float light = lightMeter.readLightLevel();
+  // === Đọc MH Sensor ===
+  int rawLight = analogRead(LIGHT_SENSOR_PIN);
+  
+  // MH Sensor thường cho giá trị ngược (Sáng -> gần 0, Tối -> gần 4095 trên ESP32)
+  // Ta lật ngược lại (4095 - rawLight) để Sáng có giá trị cao, Tối có giá trị thấp.
+  // Đồng thời nhân tỷ lệ để quy đổi tương đối sang dải ~10000 lux.
+  // Lưu ý: Cảm biến quang trở (LDR) chỉ cho giá trị lux ước lượng, không chính xác tuyệt đối như BH1750.
+  float light = (4095 - rawLight) * (10000.0 / 4095.0);
 
   // Kiểm tra lỗi tổng hợp
   if (isnan(temperature) || isnan(humidity)) {
-    Serial.println("[SENSOR] SHT30 data invalid, skipping...");
+    Serial.println("[SENSOR] DHT11 data invalid, skipping...");
     return;
   }
 
   if (light < 0) {
-    Serial.println("[BH1750] Read error, skipping...");
+    Serial.println("[MH-Sensor] Read error, skipping...");
     return;
   }
   sensorErrorCount = 0;
 
   // Validate
-  if (temperature < -10 || temperature > 60 || humidity < 0 || humidity > 100) {
-    Serial.println("[SHT30] Invalid data: " + String(temperature) + "°C, " +
+  if (temperature < -10 || temperature > 80 || humidity < 0 || humidity > 100) {
+    Serial.println("[DHT11] Invalid data: " + String(temperature) + "°C, " +
                    String(humidity) + "%");
     return;
   }
 
   if (light > 65535) {
-    Serial.println("[BH1750] Invalid light: " + String(light) + " lux");
+    Serial.println("[MH-Sensor] Invalid light: " + String(light));
     return;
   }
 

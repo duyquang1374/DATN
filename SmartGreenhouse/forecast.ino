@@ -213,15 +213,8 @@ void updateForecast() {
     return;
   }
 
-  // Tính hour_sin/cos
+  // Không còn WiFi/NTP trên Node, bỏ qua đặc trưng thời gian (dùng mặc định)
   float hourSin = 0.0f, hourCos = 1.0f;
-  struct tm tmNow;
-  if (g_ntpSynced && getLocalTime(&tmNow)) {
-    float hour  = tmNow.tm_hour + tmNow.tm_min / 60.0f;
-    float angle = hour * 2.0f * (float)M_PI / 24.0f;
-    hourSin = sinf(angle);
-    hourCos = cosf(angle);
-  }
 
   // Rolling forecast cho 3 horizons: 6 / 12 / 18 bước × 5 phút
   static const int steps[FC_HORIZONS]  = {6, 12, 18};

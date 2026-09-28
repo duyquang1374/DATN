@@ -388,6 +388,11 @@
 
   <!-- Logic -->
   <script>
+    // Khôi phục IP đã lưu từ localStorage (nếu có)
+    const savedIp = localStorage.getItem('greenhouse_esp_ip');
+    if (savedIp) {
+      document.getElementById('esp-ip').value = savedIp;
+    }
     let espIp = document.getElementById('esp-ip').value;
     let statusInterval, forecastInterval;
 
@@ -398,6 +403,8 @@
         espIp = 'http://' + espIp;
         document.getElementById('esp-ip').value = espIp;
       }
+      // Lưu IP vào localStorage để giữ sau khi refresh
+      localStorage.setItem('greenhouse_esp_ip', espIp);
       clearInterval(statusInterval);
       clearInterval(forecastInterval);
       fetchStatus();

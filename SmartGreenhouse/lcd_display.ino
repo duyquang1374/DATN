@@ -126,21 +126,14 @@ void updateLCD() {
   snprintf(buf, sizeof(buf), "Fan:%-4s Spd:%3d%%", modeStr, g_fanSpeed);
   lcdPrintField(buf, LCD_COLS);
 
-  // ─── Dòng 3: Bơm & WiFi ──────────────────────────────────
+  // ─── Dòng 3: Bơm & LoRa ──────────────────────────────────
   lcd.setCursor(0, 3);
   const char* pumpStr  = g_pumpRunning  ? "ON " : "OFF";
   const char* manualMark = g_pumpManual ? "!" : " ";  // '!' = chế độ tay
-  const char* wifiStr;
-  if (g_wifiOK) {
-    int rssi = WiFi.RSSI();
-    if      (rssi >= -60) wifiStr = "OK  ";
-    else if (rssi >= -75) wifiStr = "OK- ";
-    else                  wifiStr = "WEAK";
-  } else {
-    wifiStr = "ERR ";
-  }
-  snprintf(buf, sizeof(buf), "Pmp:%s%s  WiFi:%-4s",
-           pumpStr, manualMark, wifiStr);
+  const char* loraStr = "OK  ";
+  
+  snprintf(buf, sizeof(buf), "Pmp:%s%s  LoRa:%-4s",
+           pumpStr, manualMark, loraStr);
   lcdPrintField(buf, LCD_COLS);
 }
 
@@ -176,8 +169,7 @@ void lcdAlert(const char* msg) {
 //  HIỂN THỊ IP (Sau khi kết nối WiFi)
 // ═══════════════════════════════════════════════════════════════
 void lcdShowIP() {
-  if (!g_wifiOK) return;
   lcd.setCursor(0, 3);
-  String ip = "IP:" + WiFi.localIP().toString();
+  String ip = "LoRa Node";
   lcdPrintField(ip.c_str(), LCD_COLS);
 }
