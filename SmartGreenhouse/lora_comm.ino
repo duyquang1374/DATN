@@ -115,15 +115,15 @@ void checkLoRaCommand() {
         if (doc.containsKey("mode")) {
           g_fanMode = doc["mode"];
         }
+        // speed đã là 0-255 (PWM) từ slider web, gán trực tiếp
         if (doc.containsKey("speed") && g_fanMode == FAN_MODE_MANUAL) {
-          int s = doc["speed"];
-          g_manualPWM = map(s, 0, 100, 0, 255);
+          g_manualPWM = constrain((int)doc["speed"], 0, 255);
         }
         if (doc.containsKey("setpoint") && g_fanMode == FAN_MODE_AUTO) {
           g_fanSetpoint = doc["setpoint"];
           pidSetpoint = g_fanSetpoint;
         }
-        Serial.printf("[LoRa] CMD: Fan mode=%d\n", g_fanMode);
+        Serial.printf("[LoRa] CMD: Fan mode=%d manualPWM=%d\n", g_fanMode, g_manualPWM);
       }
       
       // -- Cấu hình --
