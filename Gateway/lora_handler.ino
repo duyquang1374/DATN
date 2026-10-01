@@ -48,6 +48,14 @@ void checkLoRaMessage() {
             String type = doc["type"].as<String>();
 
             if (type == "status") {
+              // CHỐNG DỘI TRẠNG THÁI (DEBOUNCE)
+              // Bỏ qua gói tin trạng thái từ Node nếu Gateway vừa gửi lệnh điều khiển trong vòng 2 giây qua.
+              // Điều này tránh việc gói tin trạng thái cũ (đang bay trên đường truyền) đè lên trạng thái mới (Gateway vừa tự cập nhật).
+              if (millis() - g_lastCommandTime < 2000) {
+                Serial.println("[LoRa] Bo qua status do vua gui lenh dieu khien (chong doi)");
+                return;
+              }
+
               g_temperature   = doc["temp"]     | 0.0f;
               g_humidity      = doc["humid"]    | 0.0f;
               g_tempExt       = doc["temp_ext"] | 0.0f;
@@ -122,4 +130,5 @@ void sendLoRaCommand(String cmdJson) {
   cmdJson += "\n";
   LoRaSerial.print(cmdJson);
   Serial.println("[LoRa Tx] " + cmdJson);
+  g_lastCommandTime = millis();
 }

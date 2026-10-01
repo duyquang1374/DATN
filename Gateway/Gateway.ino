@@ -67,6 +67,7 @@ unsigned long g_lastCSVTime  = 0;
 unsigned long g_lastMqttReconn = 0;
 unsigned long g_lastWifiReconn = 0;
 unsigned long g_lastLoraReceive = 0; // Thời điểm cuối cùng nhận được data từ LoRa
+unsigned long g_lastCommandTime = 0; // Thời điểm gửi lệnh điều khiển xuống Node
 
 // ═══════════════════════════════════════════════════════════════
 //  SETUP
