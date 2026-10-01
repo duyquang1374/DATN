@@ -35,7 +35,7 @@ void setCorsHeaders() {
 }
 
 void handleApiStatus() {
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<1024> doc;
   
   // Dữ liệu mới nhất lưu ở Gateway
   doc["temperature"]     = g_temperature;
@@ -82,7 +82,7 @@ void handleApiStatus() {
   getTimestamp(timeStr, sizeof(timeStr));
   doc["timestamp"] = timeStr;
 
-  char buf[512];
+  char buf[1024];
   serializeJson(doc, buf);
 
   setCorsHeaders();
