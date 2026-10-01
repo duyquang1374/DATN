@@ -83,108 +83,111 @@ void sendForecastToGateway() {
 //  NHẬN VÀ XỬ LÝ LỆNH TỪ GATEWAY
 // ═══════════════════════════════════════════════════════════════
 void checkLoRaCommand() {
+  static String buf = "";
   while (LoRaSerial.available()) {
-    String msg = LoRaSerial.readStringUntil('\n');
-    msg.trim();
-    if (msg.length() == 0) continue;
-    
-    Serial.println("[LoRa] Nhận: " + msg);
-    
-    StaticJsonDocument<256> doc;
-    DeserializationError error = deserializeJson(doc, msg);
-    if (error) {
-      Serial.println("[LoRa] Lỗi parse JSON!");
-      continue;
-    }
-    
-    if (doc.containsKey("cmd")) {
-      String cmd = doc["cmd"].as<String>();
-      
-      // -- Bơm --
-      if (cmd == "pump_on") {
-        g_pumpManual = true;
-        setPumpState(true);
-        Serial.println("[LoRa] CMD: Bật bơm");
-      } 
-      else if (cmd == "pump_off") {
-        g_pumpManual = true;
-        setPumpState(false);
-        Serial.println("[LoRa] CMD: Tắt bơm");
-      } 
-      else if (cmd == "pump_auto") {
-        g_pumpManual = false;
-        Serial.println("[LoRa] CMD: Bơm Auto");
-      }
-      
-      // -- Quạt --
-      else if (cmd == "fan") {
-        if (doc.containsKey("mode")) {
-          g_fanMode = doc["mode"];
+    char c = LoRaSerial.read();
+    if (c == '\n') {
+      buf.trim();
+      if (buf.length() > 0) {
+        Serial.println("[LoRa] Nhận: " + buf);
+        
+        StaticJsonDocument<256> doc;
+        DeserializationError error = deserializeJson(doc, buf);
+        if (error) {
+          Serial.println("[LoRa] Lỗi parse JSON!");
+        } else if (doc.containsKey("cmd")) {
+          String cmd = doc["cmd"].as<String>();
+          
+          // -- Bơm --
+          if (cmd == "pump_on") {
+            g_pumpManual = true;
+            setPumpState(true);
+            Serial.println("[LoRa] CMD: Bật bơm");
+          } 
+          else if (cmd == "pump_off") {
+            g_pumpManual = true;
+            setPumpState(false);
+            Serial.println("[LoRa] CMD: Tắt bơm");
+          } 
+          else if (cmd == "pump_auto") {
+            g_pumpManual = false;
+            Serial.println("[LoRa] CMD: Bơm Auto");
+          }
+          
+          // -- Quạt --
+          else if (cmd == "fan") {
+            if (doc.containsKey("mode")) {
+              g_fanMode = doc["mode"];
+            }
+            if (doc.containsKey("speed") && g_fanMode == FAN_MODE_MANUAL) {
+              g_manualPWM = constrain((int)doc["speed"], 0, 255);
+            }
+            if (doc.containsKey("setpoint") && g_fanMode == FAN_MODE_AUTO) {
+              g_fanSetpoint = doc["setpoint"];
+              pidSetpoint = g_fanSetpoint;
+            }
+            Serial.printf("[LoRa] CMD: Fan mode=%d manualPWM=%d\n", g_fanMode, g_manualPWM);
+          }
+          
+          // -- Cấu hình --
+          else if (cmd == "config") {
+            if (doc.containsKey("pump_on")) g_pumpOnThresh = doc["pump_on"];
+            if (doc.containsKey("pump_off")) g_pumpOffThresh = doc["pump_off"];
+            if (doc.containsKey("fan_sp")) {
+              g_fanSetpoint = doc["fan_sp"];
+              pidSetpoint = g_fanSetpoint;
+            }
+            if (doc.containsKey("light_th")) g_lightThresh = doc["light_th"];
+            saveConfig();
+            Serial.println("[LoRa] CMD: Cập nhật cấu hình");
+          }
+          
+          // -- Phun sương --
+          else if (cmd == "mist_on") {
+            g_mistManual = true;
+            setMistState(true);
+            Serial.println("[LoRa] CMD: Bật phun sương");
+          }
+          else if (cmd == "mist_off") {
+            g_mistManual = true;
+            setMistState(false);
+            Serial.println("[LoRa] CMD: Tắt phun sương");
+          }
+          else if (cmd == "mist_auto") {
+            g_mistManual = false;
+            Serial.println("[LoRa] CMD: Phun sương Auto");
+          }
+          
+          // -- Đèn --
+          else if (cmd == "light_on") {
+            g_lightManual = true;
+            setLightState(true);
+            Serial.println("[LoRa] CMD: Bật đèn");
+          }
+          else if (cmd == "light_off") {
+            g_lightManual = true;
+            setLightState(false);
+            Serial.println("[LoRa] CMD: Tắt đèn");
+          }
+          else if (cmd == "light_auto") {
+            g_lightManual = false;
+            Serial.println("[LoRa] CMD: Đèn Auto");
+          }
+          
+          // Cập nhật ngay cơ cấu chấp hành
+          updateFan();
+          updatePump();
+          updateMist();
+          updateLight();
+          
+          // Gửi lại trạng thái ngay lập tức để Gateway/Web cập nhật nhanh
+          sendDataToGateway();
         }
-        // speed đã là 0-255 (PWM) từ slider web, gán trực tiếp
-        if (doc.containsKey("speed") && g_fanMode == FAN_MODE_MANUAL) {
-          g_manualPWM = constrain((int)doc["speed"], 0, 255);
-        }
-        if (doc.containsKey("setpoint") && g_fanMode == FAN_MODE_AUTO) {
-          g_fanSetpoint = doc["setpoint"];
-          pidSetpoint = g_fanSetpoint;
-        }
-        Serial.printf("[LoRa] CMD: Fan mode=%d manualPWM=%d\n", g_fanMode, g_manualPWM);
       }
-      
-      // -- Cấu hình --
-      else if (cmd == "config") {
-        if (doc.containsKey("pump_on")) g_pumpOnThresh = doc["pump_on"];
-        if (doc.containsKey("pump_off")) g_pumpOffThresh = doc["pump_off"];
-        if (doc.containsKey("fan_sp")) {
-          g_fanSetpoint = doc["fan_sp"];
-          pidSetpoint = g_fanSetpoint;
-        }
-        if (doc.containsKey("light_th")) g_lightThresh = doc["light_th"];
-        saveConfig();
-        Serial.println("[LoRa] CMD: Cập nhật cấu hình");
-      }
-      
-      // -- Phun sương --
-      else if (cmd == "mist_on") {
-        g_mistManual = true;
-        setMistState(true);
-        Serial.println("[LoRa] CMD: Bật phun sương");
-      }
-      else if (cmd == "mist_off") {
-        g_mistManual = true;
-        setMistState(false);
-        Serial.println("[LoRa] CMD: Tắt phun sương");
-      }
-      else if (cmd == "mist_auto") {
-        g_mistManual = false;
-        Serial.println("[LoRa] CMD: Phun sương Auto");
-      }
-      
-      // -- Đèn --
-      else if (cmd == "light_on") {
-        g_lightManual = true;
-        setLightState(true);
-        Serial.println("[LoRa] CMD: Bật đèn");
-      }
-      else if (cmd == "light_off") {
-        g_lightManual = true;
-        setLightState(false);
-        Serial.println("[LoRa] CMD: Tắt đèn");
-      }
-      else if (cmd == "light_auto") {
-        g_lightManual = false;
-        Serial.println("[LoRa] CMD: Đèn Auto");
-      }
-      
-      // Cập nhật ngay cơ cấu chấp hành
-      updateFan();
-      updatePump();
-      updateMist();
-      updateLight();
-      
-      // Gửi lại trạng thái ngay lập tức để Gateway/Web cập nhật nhanh
-      sendDataToGateway();
+      buf = "";
+    } else {
+      buf += c;
+      if (buf.length() > 256) buf = ""; // chống tràn
     }
   }
 }

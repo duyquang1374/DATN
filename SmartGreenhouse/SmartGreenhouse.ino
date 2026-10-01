@@ -176,8 +176,8 @@ void loop() {
     updateLCD();
   }
 
-  // ─ Gửi dữ liệu qua LoRa (mỗi 4 giây, giả sử CSV_INTERVAL = 4000) ─
-  if (now - g_lastLoraTime >= 4000) {
+  // ─ Gửi dữ liệu qua LoRa (mỗi 10 giây để tránh nghẽn kênh LoRa) ─
+  if (now - g_lastLoraTime >= 10000) {
     g_lastLoraTime = now;
     if (g_sht30OK && g_bh1750OK) {
       sendDataToGateway();
