@@ -42,8 +42,16 @@ void checkLoRaMessage() {
             g_fanSetpoint   = doc["fan_sp"]   | 30.0f;
 
             g_pumpRunning   = doc["pump"]     | false;
+            g_pumpManual    = doc["pump_m"]   | false;
             g_pumpOnThresh  = doc["pump_on"]  | 40.0f;
             g_pumpOffThresh = doc["pump_off"] | 65.0f;
+
+            g_mistRunning   = doc["mist"]     | false;
+            g_mistManual    = doc["mist_m"]   | false;
+
+            g_lightRunning  = doc["light"]    | false;
+            g_lightManual   = doc["light_m"]  | false;
+            g_lightThresh   = doc["light_th"] | 1000.0f;
 
             g_sht30OK       = doc["s_ok"]     | false;
             g_sht30ExtOK    = doc["se_ok"]    | false;

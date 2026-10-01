@@ -41,6 +41,13 @@ bool  g_pumpManual   = false;
 float g_pumpOnThresh = 40.0;
 float g_pumpOffThresh= 80.0;
 
+bool  g_mistRunning  = false;
+bool  g_mistManual   = false;
+
+bool  g_lightRunning = false;
+bool  g_lightManual  = false;
+float g_lightThresh  = 1000.0;
+
 bool  g_sht30OK      = false;
 bool  g_sht30ExtOK   = false;
 bool  g_bh1750OK     = false;

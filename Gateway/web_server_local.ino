@@ -49,8 +49,16 @@ void handleApiStatus() {
   doc["fan_setpoint"]    = g_fanSetpoint;
   
   doc["pump_running"]    = g_pumpRunning;
+  doc["pump_manual"]     = g_pumpManual;
   doc["pump_on"]         = g_pumpOnThresh;
   doc["pump_off"]        = g_pumpOffThresh;
+  
+  doc["mist_running"]    = g_mistRunning;
+  doc["mist_manual"]     = g_mistManual;
+  
+  doc["light_running"]   = g_lightRunning;
+  doc["light_manual"]    = g_lightManual;
+  doc["light_thresh"]    = g_lightThresh;
   
   doc["sht30_ok"]        = g_sht30OK;
   doc["sht30_ext_ok"]    = g_sht30ExtOK;
@@ -120,6 +128,29 @@ void handleApiControl() {
     hasCmd = true;
   }
 
+  // -- Ngưỡng đèn --
+  if (webServer.hasArg("light_thresh")) {
+    loraDoc["cmd"]      = "config";
+    loraDoc["light_th"] = webServer.arg("light_thresh").toFloat();
+    hasCmd = true;
+  }
+
+  // -- Phun sương --
+  if (webServer.hasArg("mist")) {
+    String val = webServer.arg("mist");
+    if (val == "on")   { loraDoc["cmd"] = "mist_on";   hasCmd = true; }
+    else if (val == "off")  { loraDoc["cmd"] = "mist_off";  hasCmd = true; }
+    else if (val == "auto") { loraDoc["cmd"] = "mist_auto"; hasCmd = true; }
+  }
+
+  // -- Đèn --
+  if (webServer.hasArg("lamp")) {
+    String val = webServer.arg("lamp");
+    if (val == "on")   { loraDoc["cmd"] = "light_on";   hasCmd = true; }
+    else if (val == "off")  { loraDoc["cmd"] = "light_off";  hasCmd = true; }
+    else if (val == "auto") { loraDoc["cmd"] = "light_auto"; hasCmd = true; }
+  }
+
   if (hasCmd) {
     String loraStr;
     serializeJson(loraDoc, loraStr);
@@ -131,6 +162,12 @@ void handleApiControl() {
     if (cmd == "pump_on")   { g_pumpRunning = true;  g_pumpManual = true; }
     if (cmd == "pump_off")  { g_pumpRunning = false; g_pumpManual = true; }
     if (cmd == "pump_auto") { g_pumpManual = false; }
+    if (cmd == "mist_on")   { g_mistRunning = true;  g_mistManual = true; }
+    if (cmd == "mist_off")  { g_mistRunning = false; g_mistManual = true; }
+    if (cmd == "mist_auto") { g_mistManual = false; }
+    if (cmd == "light_on")  { g_lightRunning = true;  g_lightManual = true; }
+    if (cmd == "light_off") { g_lightRunning = false; g_lightManual = true; }
+    if (cmd == "light_auto"){ g_lightManual = false; }
     if (cmd == "fan") {
       if (loraDoc.containsKey("mode"))     g_fanMode     = loraDoc["mode"];
       if (loraDoc.containsKey("speed"))    g_fanSpeed    = map((int)loraDoc["speed"], 0, 255, 0, 100);
@@ -139,6 +176,7 @@ void handleApiControl() {
     if (cmd == "config") {
       if (loraDoc.containsKey("pump_on"))  g_pumpOnThresh  = loraDoc["pump_on"];
       if (loraDoc.containsKey("pump_off")) g_pumpOffThresh = loraDoc["pump_off"];
+      if (loraDoc.containsKey("light_th")) g_lightThresh   = loraDoc["light_th"];
     }
 
     webServer.send(200, "application/json", "{\"status\":\"success\"}");

@@ -290,6 +290,77 @@
 
 
 
+    <!-- Mist Card -->
+    <div
+      class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-400 to-cyan-500"></div>
+      <div class="flex justify-between items-center mb-5">
+        <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
+          <span class="text-lg">💨</span> Phun Sương
+        </div>
+        <span id="mist-badge"
+          class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
+      </div>
+
+      <div class="text-center mb-4">
+        <div id="mist-state" class="text-2xl font-bold text-slate-500">TẮT</div>
+        <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="mist-mode" class="font-semibold">AUTO</span></div>
+      </div>
+
+      <!-- Mode Buttons -->
+      <div class="grid grid-cols-3 gap-2 mb-2">
+        <button onclick="setMist('auto','btn-mist-auto')" id="btn-mist-auto"
+          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
+        <button onclick="setMist('on','btn-mist-on')" id="btn-mist-on"
+          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
+        <button onclick="setMist('off','btn-mist-off')" id="btn-mist-off"
+          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
+      </div>
+      <p class="text-[10px] text-slate-600 text-center">Tự động bật cùng quạt khi nhiệt độ vượt ngưỡng</p>
+    </div>
+
+    <!-- Light Card -->
+    <div
+      class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-amber-500"></div>
+      <div class="flex justify-between items-center mb-5">
+        <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
+          <span class="text-lg">💡</span> Đèn Chiếu Sáng
+        </div>
+        <span id="lamp-badge"
+          class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
+      </div>
+
+      <div class="text-center mb-4">
+        <div id="lamp-state" class="text-2xl font-bold text-slate-500">TẮT</div>
+        <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="lamp-mode" class="font-semibold">AUTO</span></div>
+      </div>
+
+      <!-- Mode Buttons -->
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <button onclick="setLamp('auto','btn-lamp-auto')" id="btn-lamp-auto"
+          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
+        <button onclick="setLamp('on','btn-lamp-on')" id="btn-lamp-on"
+          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
+        <button onclick="setLamp('off','btn-lamp-off')" id="btn-lamp-off"
+          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
+      </div>
+
+      <!-- Ngưỡng đèn -->
+      <div class="pt-3 border-t border-slate-700/50">
+        <div class="flex gap-2 items-end">
+          <div class="flex-1">
+            <label class="block text-[10px] uppercase tracking-wider font-medium text-slate-500 mb-1.5">Bật khi < (lux)</label>
+            <input type="number" id="cfg-light-th"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-sm text-white outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 transition-all shadow-inner text-center">
+          </div>
+          <button onclick="saveConfig('light')"
+            class="bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 hover:text-yellow-300 px-3 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm">Lưu</button>
+        </div>
+      </div>
+    </div>
+
+
     <!-- Forecast Card -->
     <div
       class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
@@ -546,6 +617,47 @@
       (pIdx === 0 ? btnPA : pIdx === 1 ? btnPOn : btnPOff).classList.remove(...idleClass);
       (pIdx === 0 ? btnPA : pIdx === 1 ? btnPOn : btnPOff).classList.add(...activeClass);
 
+      // ─── Mist (Phun sương) ──────────────────────────────
+      const mr = d.mist_running;
+      const mistEl = document.getElementById('mist-state');
+      mistEl.textContent = mr ? 'BẬT' : 'TẮT';
+      mistEl.className = `text-2xl font-bold ${mr ? 'text-teal-400' : 'text-slate-500'}`;
+      updateBadge('mist-badge', mr ? 'ON' : 'OFF', mr ? 'bg-teal-500/10 text-teal-400 border-teal-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+      document.getElementById('mist-mode').textContent = d.mist_manual ? 'TAY' : 'AUTO';
+
+      // Highlight mist buttons
+      const mistBtns = ['btn-mist-auto', 'btn-mist-on', 'btn-mist-off'];
+      mistBtns.forEach(id => {
+        const b = document.getElementById(id);
+        if(b) { b.classList.remove(...activeClass); b.classList.add(...idleClass); }
+      });
+      const mistActiveId = !d.mist_manual ? 'btn-mist-auto' : (mr ? 'btn-mist-on' : 'btn-mist-off');
+      const mab = document.getElementById(mistActiveId);
+      if(mab) { mab.classList.remove(...idleClass); mab.classList.add(...activeClass); }
+
+      // ─── Light (Đèn) ────────────────────────────────────
+      const lr = d.light_running;
+      const lampEl = document.getElementById('lamp-state');
+      lampEl.textContent = lr ? 'BẬT' : 'TẮT';
+      lampEl.className = `text-2xl font-bold ${lr ? 'text-yellow-400' : 'text-slate-500'}`;
+      updateBadge('lamp-badge', lr ? 'ON' : 'OFF', lr ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+      document.getElementById('lamp-mode').textContent = d.light_manual ? 'TAY' : 'AUTO';
+
+      // Highlight light buttons
+      const lampBtns = ['btn-lamp-auto', 'btn-lamp-on', 'btn-lamp-off'];
+      lampBtns.forEach(id => {
+        const b = document.getElementById(id);
+        if(b) { b.classList.remove(...activeClass); b.classList.add(...idleClass); }
+      });
+      const lampActiveId = !d.light_manual ? 'btn-lamp-auto' : (lr ? 'btn-lamp-on' : 'btn-lamp-off');
+      const lab = document.getElementById(lampActiveId);
+      if(lab) { lab.classList.remove(...idleClass); lab.classList.add(...activeClass); }
+
+      // Light threshold config
+      if (document.activeElement.id !== 'cfg-light-th') {
+        document.getElementById('cfg-light-th').value = d.light_thresh;
+      }
+
       // Sys info
       document.getElementById('sys-recs').textContent = d.total_records.toLocaleString('vi-VN');
       document.getElementById('sys-flash').textContent = `${d.file_kb} / ${d.flash_total_kb} KB`;
@@ -644,10 +756,37 @@
       await ctrl({ pump: m }, btnId);
     }
 
+    async function setMist(m, btnId) {
+      // Optimistic UI
+      const mistEl = document.getElementById('mist-state');
+      if (mistEl) {
+        if (m === 'on')   { mistEl.textContent = 'BẬT'; mistEl.className = 'text-2xl font-bold text-teal-400'; }
+        else if (m === 'off')  { mistEl.textContent = 'TẮT'; mistEl.className = 'text-2xl font-bold text-slate-500'; }
+        else if (m === 'auto') { mistEl.textContent = 'AUTO'; mistEl.className = 'text-2xl font-bold text-teal-400'; }
+      }
+      document.getElementById('mist-mode').textContent = m === 'auto' ? 'AUTO' : 'TAY';
+      await ctrl({ mist: m }, btnId);
+    }
+
+    async function setLamp(m, btnId) {
+      // Optimistic UI
+      const lampEl = document.getElementById('lamp-state');
+      if (lampEl) {
+        if (m === 'on')   { lampEl.textContent = 'BẬT'; lampEl.className = 'text-2xl font-bold text-yellow-400'; }
+        else if (m === 'off')  { lampEl.textContent = 'TẮT'; lampEl.className = 'text-2xl font-bold text-slate-500'; }
+        else if (m === 'auto') { lampEl.textContent = 'AUTO'; lampEl.className = 'text-2xl font-bold text-yellow-400'; }
+      }
+      document.getElementById('lamp-mode').textContent = m === 'auto' ? 'AUTO' : 'TAY';
+      await ctrl({ lamp: m }, btnId);
+    }
+
     async function saveConfig(type) {
       if (type === 'fan') {
         const sp = document.getElementById('cfg-fan').value;
         await ctrl({ setpoint: sp });
+      } else if (type === 'light') {
+        const th = document.getElementById('cfg-light-th').value;
+        await ctrl({ light_thresh: th });
       } else {
         const on  = document.getElementById('cfg-p-on').value;
         const off = document.getElementById('cfg-p-off').value;

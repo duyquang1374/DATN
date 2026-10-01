@@ -66,6 +66,7 @@ int   g_sensorErrors = 0;
 float g_fanSetpoint   = DEFAULT_FAN_SETPOINT;
 float g_pumpOnThresh  = DEFAULT_PUMP_ON_THRESH;
 float g_pumpOffThresh = DEFAULT_PUMP_OFF_THRESH;
+float g_lightThresh   = DEFAULT_LIGHT_THRESH;  // Ngưỡng bật đèn (lux)
 
 // ─── Trạng thái quạt ─────────────────────────────────────────
 int  g_fanMode    = FAN_MODE_AUTO;  // FAN_MODE_OFF / AUTO / MANUAL
@@ -79,6 +80,14 @@ bool          g_pumpRunning  = false;
 bool          g_pumpManual   = false;  // true = đang điều khiển tay
 unsigned long g_pumpStart    = 0;
 unsigned long g_pumpStop     = 0;
+
+// ─── Trạng thái phun sương ───────────────────────────────────
+bool g_mistRunning = false;
+bool g_mistManual  = false;  // true = đang điều khiển tay
+
+// ─── Trạng thái đèn ─────────────────────────────────────────
+bool g_lightRunning = false;
+bool g_lightManual  = false;  // true = đang điều khiển tay
 
 // ─── Hệ thống ────────────────────────────────────────────────
 unsigned long g_lastSensorTime   = 0;
@@ -121,6 +130,8 @@ void setup() {
   lcdShowBoot("Khoi tao co cau", 1);
   initFan();
   initPump();
+  initMist();
+  initLight();
 
   // Bộ nhớ flash
   lcdShowBoot("Kiem tra bo nho", 2);
@@ -155,6 +166,8 @@ void loop() {
     readSensors();
     updateFan();
     updatePump();
+    updateMist();
+    updateLight();
   }
 
   // ─ Cập nhật LCD (mỗi LCD_INTERVAL) ─
@@ -209,6 +222,7 @@ void loadConfig() {
       if (doc.containsKey("fan_sp")) g_fanSetpoint = doc["fan_sp"];
       if (doc.containsKey("pump_on")) g_pumpOnThresh = doc["pump_on"];
       if (doc.containsKey("pump_off")) g_pumpOffThresh = doc["pump_off"];
+      if (doc.containsKey("light_th")) g_lightThresh = doc["light_th"];
       Serial.println("[CONFIG] Đã tải cấu hình từ Flash ✓");
     } else {
       Serial.println("[CONFIG] Lỗi đọc file config.json");
@@ -226,6 +240,7 @@ void saveConfig() {
     doc["fan_sp"] = g_fanSetpoint;
     doc["pump_on"] = g_pumpOnThresh;
     doc["pump_off"] = g_pumpOffThresh;
+    doc["light_th"] = g_lightThresh;
     serializeJson(doc, f);
     f.close();
     Serial.println("[CONFIG] Đã lưu cấu hình ✓");

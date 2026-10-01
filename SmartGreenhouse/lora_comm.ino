@@ -23,8 +23,16 @@ void sendDataToGateway() {
   doc["fan_sp"]      = g_fanSetpoint;
   
   doc["pump"]        = g_pumpRunning;
+  doc["pump_m"]      = g_pumpManual;
   doc["pump_on"]     = g_pumpOnThresh;
   doc["pump_off"]    = g_pumpOffThresh;
+  
+  doc["mist"]        = g_mistRunning;
+  doc["mist_m"]      = g_mistManual;
+  
+  doc["light"]       = g_lightRunning;
+  doc["light_m"]     = g_lightManual;
+  doc["light_th"]    = g_lightThresh;
   
   doc["s_ok"]        = g_sht30OK;
   doc["se_ok"]       = g_sht30ExtOK;
@@ -132,13 +140,48 @@ void checkLoRaCommand() {
           g_fanSetpoint = doc["fan_sp"];
           pidSetpoint = g_fanSetpoint;
         }
+        if (doc.containsKey("light_th")) g_lightThresh = doc["light_th"];
         saveConfig();
         Serial.println("[LoRa] CMD: Cập nhật cấu hình");
+      }
+      
+      // -- Phun sương --
+      else if (cmd == "mist_on") {
+        g_mistManual = true;
+        setMistState(true);
+        Serial.println("[LoRa] CMD: Bật phun sương");
+      }
+      else if (cmd == "mist_off") {
+        g_mistManual = true;
+        setMistState(false);
+        Serial.println("[LoRa] CMD: Tắt phun sương");
+      }
+      else if (cmd == "mist_auto") {
+        g_mistManual = false;
+        Serial.println("[LoRa] CMD: Phun sương Auto");
+      }
+      
+      // -- Đèn --
+      else if (cmd == "light_on") {
+        g_lightManual = true;
+        setLightState(true);
+        Serial.println("[LoRa] CMD: Bật đèn");
+      }
+      else if (cmd == "light_off") {
+        g_lightManual = true;
+        setLightState(false);
+        Serial.println("[LoRa] CMD: Tắt đèn");
+      }
+      else if (cmd == "light_auto") {
+        g_lightManual = false;
+        Serial.println("[LoRa] CMD: Đèn Auto");
       }
       
       // Cập nhật ngay cơ cấu chấp hành
       updateFan();
       updatePump();
+      updateMist();
+      updateLight();
       
       // Gửi lại trạng thái ngay lập tức để Gateway/Web cập nhật nhanh
       sendDataToGateway();

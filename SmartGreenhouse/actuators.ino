@@ -229,3 +229,117 @@ void setPumpAuto() {
   g_pumpManual = false;
   Serial.println("[PUMP] Chế độ tự động");
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  KHỞI TẠO PHUN SƯƠNG
+// ═══════════════════════════════════════════════════════════════
+void initMist() {
+  pinMode(MIST_PIN, OUTPUT);
+  setMistState(false);  // Tắt lúc khởi động
+  g_mistRunning = false;
+  g_mistManual  = false;
+  Serial.printf("[MIST] Init OK  pin=%d  ActiveHigh=%d\n",
+                MIST_PIN, MIST_ACTIVE_HIGH);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CẬP NHẬT PHUN SƯƠNG (Gọi mỗi SENSOR_INTERVAL)
+//  Logic: Bật cùng quạt — khi quạt đang chạy (AUTO hoặc MANUAL)
+//         thì phun sương cũng bật. Quạt tắt → phun sương tắt.
+// ═══════════════════════════════════════════════════════════════
+void updateMist() {
+  if (g_mistManual) return;  // Đang điều khiển tay, bỏ qua
+
+  bool shouldRun = g_fanRunning;  // Phun sương liên kết với quạt
+
+  if (shouldRun && !g_mistRunning) {
+    setMistState(true);
+    Serial.println("[MIST] AUTO: Quạt đang chạy → BẬT phun sương");
+  } else if (!shouldRun && g_mistRunning) {
+    setMistState(false);
+    Serial.println("[MIST] AUTO: Quạt tắt → TẮT phun sương");
+  }
+}
+
+// Bật/tắt phun sương (cấp thấp)
+void setMistState(bool on) {
+  if (on) {
+    digitalWrite(MIST_PIN, MIST_ACTIVE_HIGH ? HIGH : LOW);
+    g_mistRunning = true;
+  } else {
+    digitalWrite(MIST_PIN, MIST_ACTIVE_HIGH ? LOW : HIGH);
+    g_mistRunning = false;
+  }
+}
+
+// API: Bật/tắt phun sương thủ công từ web
+void setMistManual(bool on) {
+  g_mistManual = true;
+  setMistState(on);
+  Serial.printf("[MIST] Điều khiển tay → %s\n", on ? "ON" : "OFF");
+}
+
+// API: Trả phun sương về chế độ tự động
+void setMistAuto() {
+  g_mistManual = false;
+  Serial.println("[MIST] Chế độ tự động");
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  KHỞI TẠO ĐÈN
+// ═══════════════════════════════════════════════════════════════
+void initLight() {
+  pinMode(LIGHT_PIN, OUTPUT);
+  setLightState(false);  // Tắt lúc khởi động
+  g_lightRunning = false;
+  g_lightManual  = false;
+  Serial.printf("[LIGHT] Init OK  pin=%d  ActiveHigh=%d  Thresh=%.0f lux\n",
+                LIGHT_PIN, LIGHT_ACTIVE_HIGH, g_lightThresh);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CẬP NHẬT ĐÈN (Gọi mỗi SENSOR_INTERVAL)
+//  Logic: Bật khi ánh sáng < ngưỡng, tắt khi > ngưỡng + hysteresis
+//  Hysteresis 200 lux tránh bật tắt liên tục
+// ═══════════════════════════════════════════════════════════════
+void updateLight() {
+  if (g_lightManual) return;  // Đang điều khiển tay, bỏ qua
+
+  if (!g_bh1750OK || isnan(g_lightLux)) return;
+
+  const float hysteresis = 200.0;  // Tránh bật tắt liên tục
+
+  if (!g_lightRunning && g_lightLux < g_lightThresh) {
+    setLightState(true);
+    Serial.printf("[LIGHT] AUTO: Tối (%.0f lux < %.0f) → BẬT đèn\n",
+                  g_lightLux, g_lightThresh);
+  } else if (g_lightRunning && g_lightLux > (g_lightThresh + hysteresis)) {
+    setLightState(false);
+    Serial.printf("[LIGHT] AUTO: Sáng (%.0f lux > %.0f) → TẮT đèn\n",
+                  g_lightLux, g_lightThresh + hysteresis);
+  }
+}
+
+// Bật/tắt đèn (cấp thấp)
+void setLightState(bool on) {
+  if (on) {
+    digitalWrite(LIGHT_PIN, LIGHT_ACTIVE_HIGH ? HIGH : LOW);
+    g_lightRunning = true;
+  } else {
+    digitalWrite(LIGHT_PIN, LIGHT_ACTIVE_HIGH ? LOW : HIGH);
+    g_lightRunning = false;
+  }
+}
+
+// API: Bật/tắt đèn thủ công từ web
+void setLightManual(bool on) {
+  g_lightManual = true;
+  setLightState(on);
+  Serial.printf("[LIGHT] Điều khiển tay → %s\n", on ? "ON" : "OFF");
+}
+
+// API: Trả đèn về chế độ tự động
+void setLightAuto() {
+  g_lightManual = false;
+  Serial.println("[LIGHT] Chế độ tự động");
+}

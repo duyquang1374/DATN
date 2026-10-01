@@ -94,6 +94,23 @@
 #define LED_PIN          2
 
 // ─────────────────────────────────────────────────────────────
+//  PHUN SƯƠNG (MOSFET)
+//  - Bật cùng lúc với quạt (khi nhiệt độ > setpoint)
+//  - Hỗ trợ bật/tắt thủ công từ Web
+// ─────────────────────────────────────────────────────────────
+#define MIST_PIN         33   // GPIO33 → MOSFET phun sương
+#define MIST_ACTIVE_HIGH true // true = HIGH bật phun sương
+
+// ─────────────────────────────────────────────────────────────
+//  ĐÈN CHIẾU SÁNG (MOSFET)
+//  - Bật khi ánh sáng < ngưỡng (trời tối)
+//  - Hỗ trợ bật/tắt thủ công từ Web
+// ─────────────────────────────────────────────────────────────
+#define LIGHT_PIN           4      // GPIO4 → MOSFET đèn
+#define LIGHT_ACTIVE_HIGH   true   // true = HIGH bật đèn
+#define DEFAULT_LIGHT_THRESH 1000.0 // Bật đèn khi < 1000 lux
+
+// ─────────────────────────────────────────────────────────────
 //  NTP
 // ─────────────────────────────────────────────────────────────
 #define NTP_SERVER       "pool.ntp.org"
