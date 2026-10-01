@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────
 //  MQTT
 // ─────────────────────────────────────────────────────────────
-#define MQTT_ENABLED     true
+#define MQTT_ENABLED     false
 #define MQTT_SERVER      "192.168.1.228"
 #define MQTT_PORT        1883
 #define MQTT_CLIENT_ID   "ESP32_SmartGreenhouse_GW"
