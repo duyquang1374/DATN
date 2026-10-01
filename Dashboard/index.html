@@ -807,7 +807,7 @@
 
     async function deleteData() {
       if (confirm('Bạn có chắc chắn muốn xóa toàn bộ dữ liệu CSV đã lưu? Hành động này không thể hoàn tác!')) {
-        const res = await fetch(espIp + '/delete');
+        const res = await fetch(espIp + '/delete_csv', { method: 'POST' });
         if (res.ok) alert('Đã xóa dữ liệu thành công!');
         setTimeout(fetchStatus, 1000);
       }
