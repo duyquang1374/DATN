@@ -70,7 +70,13 @@ void handleApiStatus() {
   doc["ip"]              = g_wifiOK ? WiFi.localIP().toString() : "0.0.0.0";
   doc["uptime"]          = millis() / 1000; // Uptime của Gateway
   doc["node_uptime"]     = g_nodeUptime;    // Uptime của Node
-  doc["records"]         = g_totalRecords;
+  doc["total_records"]   = g_totalRecords;
+  
+  File f = LittleFS.open(CSV_FILE, "r");
+  doc["file_kb"] = f ? (f.size() / 1024) : 0;
+  if (f) f.close();
+  doc["flash_total_kb"] = LittleFS.totalBytes() / 1024;
+  doc["ntp_synced"]     = g_ntpSynced;
   
   char timeStr[25];
   getTimestamp(timeStr, sizeof(timeStr));
