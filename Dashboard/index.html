@@ -488,7 +488,9 @@
 
     async function req(path) {
       try {
-        const res = await fetch(espIp + path);
+        const url = new URL(espIp + path);
+        url.searchParams.append('t', Date.now()); // Chống cache trình duyệt
+        const res = await fetch(url.toString());
         if (!res.ok) throw new Error('Network response was not ok');
         return await res.json();
       } catch (err) {

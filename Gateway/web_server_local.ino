@@ -32,6 +32,9 @@ void setupWebServer() {
 
 void setCorsHeaders() {
   webServer.sendHeader("Access-Control-Allow-Origin", "*");
+  webServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  webServer.sendHeader("Pragma", "no-cache");
+  webServer.sendHeader("Expires", "-1");
 }
 
 void handleApiStatus() {
