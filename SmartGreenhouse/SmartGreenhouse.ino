@@ -140,7 +140,7 @@ void loop() {
     updateValves();
     updateRoof();
   }
-l
+
   if (now - g_lastHMITime >= HMI_INTERVAL) {
     g_lastHMITime = now;
     sendHMIData();
