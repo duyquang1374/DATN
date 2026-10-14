@@ -48,6 +48,17 @@ bool  g_lightRunning = false;
 bool  g_lightManual  = false;
 float g_lightThresh  = 1000.0;
 
+bool  g_heaterRunning = false;
+bool  g_heaterManual  = false;
+int   g_heaterPWM     = 0;
+
+bool  g_valve1Running = false;
+bool  g_valve2Running = false;
+bool  g_valveManual   = false;
+
+int   g_roofAngle     = 0;
+bool  g_roofManual    = false;
+
 bool  g_sht30OK      = false;
 bool  g_sht30ExtOK   = false;
 bool  g_bh1750OK     = false;

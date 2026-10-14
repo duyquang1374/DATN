@@ -63,6 +63,18 @@ void handleApiStatus() {
   doc["light_manual"]    = g_lightManual;
   doc["light_thresh"]    = g_lightThresh;
   
+  doc["heater_running"]  = g_heaterRunning;
+  doc["heater_manual"]   = g_heaterManual;
+  doc["heater_pwm"]      = g_heaterPWM;
+
+  doc["valve1_running"]  = g_valve1Running;
+  doc["valve2_running"]  = g_valve2Running;
+  doc["valve_manual"]    = g_valveManual;
+
+  doc["roof_angle"]      = g_roofAngle;
+  doc["roof_manual"]     = g_roofManual;
+
+  
   doc["sht30_ok"]        = g_sht30OK;
   doc["sht30_ext_ok"]    = g_sht30ExtOK;
   doc["temp_ext"]        = g_tempExt;
@@ -160,6 +172,39 @@ void handleApiControl() {
     else if (val == "auto") { loraDoc["cmd"] = "light_auto"; hasCmd = true; }
   }
 
+  // -- Sưởi --
+  if (webServer.hasArg("heater")) {
+    String val = webServer.arg("heater");
+    if (val == "on")   { loraDoc["cmd"] = "heater_on";   hasCmd = true; }
+    else if (val == "off")  { loraDoc["cmd"] = "heater_off";  hasCmd = true; }
+    else if (val == "auto") { loraDoc["cmd"] = "heater_auto"; hasCmd = true; }
+  }
+
+  // -- Van điện từ 1 --
+  if (webServer.hasArg("valve1")) {
+    String val = webServer.arg("valve1");
+    if (val == "on")   { loraDoc["cmd"] = "valve1_on";   hasCmd = true; }
+    else if (val == "off")  { loraDoc["cmd"] = "valve1_off";  hasCmd = true; }
+    else if (val == "auto") { loraDoc["cmd"] = "valve_auto"; hasCmd = true; }
+  }
+  
+  // -- Van điện từ 2 --
+  if (webServer.hasArg("valve2")) {
+    String val = webServer.arg("valve2");
+    if (val == "on")   { loraDoc["cmd"] = "valve2_on";   hasCmd = true; }
+    else if (val == "off")  { loraDoc["cmd"] = "valve2_off";  hasCmd = true; }
+    else if (val == "auto") { loraDoc["cmd"] = "valve_auto"; hasCmd = true; }
+  }
+
+  // -- Mái che --
+  if (webServer.hasArg("roof")) {
+    String val = webServer.arg("roof");
+    if (val == "open")   { loraDoc["cmd"] = "roof_open";   hasCmd = true; }
+    else if (val == "close")  { loraDoc["cmd"] = "roof_close";  hasCmd = true; }
+    else if (val == "auto") { loraDoc["cmd"] = "roof_auto"; hasCmd = true; }
+  }
+
+
   if (hasCmd) {
     String loraStr;
     serializeJson(loraDoc, loraStr);
@@ -177,6 +222,17 @@ void handleApiControl() {
     if (cmd == "light_on")  { g_lightRunning = true;  g_lightManual = true; }
     if (cmd == "light_off") { g_lightRunning = false; g_lightManual = true; }
     if (cmd == "light_auto"){ g_lightManual = false; }
+    if (cmd == "heater_on") { g_heaterRunning = true; g_heaterManual = true; }
+    if (cmd == "heater_off"){ g_heaterRunning = false; g_heaterManual = true; }
+    if (cmd == "heater_auto"){ g_heaterManual = false; }
+    if (cmd == "valve1_on") { g_valve1Running = true; g_valveManual = true; }
+    if (cmd == "valve1_off"){ g_valve1Running = false; g_valveManual = true; }
+    if (cmd == "valve2_on") { g_valve2Running = true; g_valveManual = true; }
+    if (cmd == "valve2_off"){ g_valve2Running = false; g_valveManual = true; }
+    if (cmd == "valve_auto"){ g_valveManual = false; }
+    if (cmd == "roof_open") { g_roofAngle = 180; g_roofManual = true; }
+    if (cmd == "roof_close"){ g_roofAngle = 0; g_roofManual = true; }
+    if (cmd == "roof_auto") { g_roofManual = false; }
     if (cmd == "fan") {
       if (loraDoc.containsKey("mode"))     g_fanMode     = loraDoc["mode"];
       if (loraDoc.containsKey("speed"))    g_fanSpeed    = map((int)loraDoc["speed"], 0, 255, 0, 100);

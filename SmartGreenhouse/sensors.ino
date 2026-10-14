@@ -22,8 +22,10 @@ int g_soilRawADC = 0;
 //  KHỞI TẠO CẢM BIẾN
 // ═══════════════════════════════════════════════════════════════
 void initSensors() {
-  // ─ SHT30 Trong Nhà (I2C 1) ─
-  if (sht30.begin(0x44) || sht30.begin(0x45)) {
+  I2C_Ext.begin(I2C1_SDA, I2C1_SCL);
+
+  // ─ SHT30 Trong Nhà (I2C 0) ─
+  if (sht30.begin(0x44)) {
     sht30.heater(false);
     g_sht30OK = true;
     Serial.println(F("[SHT30 IN] Init OK"));
@@ -32,8 +34,7 @@ void initSensors() {
     Serial.println(F("[SHT30 IN] FAILED!"));
   }
 
-  // ─ SHT30 Ngoài Trời (I2C 2) ─
-  I2C_Ext.begin(I2C_SDA_EXT, I2C_SCL_EXT, 100000);
+  // ─ SHT30 Ngoài Trời (I2C 1, dùng I2C_Ext, địa chỉ 0x44) ─
   if (sht30_ext.begin(0x44)) {
     sht30_ext.heater(false);
     g_sht30ExtOK = true;
@@ -146,7 +147,7 @@ void readSensors() {
       }
     }
   } else {
-    if (sht30.begin(0x44) || sht30.begin(0x45)) {
+    if (sht30.begin(0x44)) {
       sht30.heater(false);
       g_sht30OK = true;
     }

@@ -1,345 +1,222 @@
-/*
- * actuators.ino
- * Điều khiển Quạt DC (TB6612FNG + PID) và Bơm 5V.
- *
- * Quạt DC:
- *   - TB6612FNG: AIN1/AIN2 chọn chiều, PWMA điều tốc, STBY kích hoạt
- *   - ESP32 LEDC (ledcWrite) tạo PWM tần số 20kHz
- *   - PID: Input=nhiệt độ, Setpoint=FAN_SETPOINT, Output=PWM (0-255)
- *   - REVERSE direction: nhiệt độ tăng → PWM tăng → quạt nhanh hơn
- *
- * Bơm 5V:
- *   - Bật khi độ ẩm đất < PUMP_ON_THRESHOLD
- *   - Tắt khi độ ẩm đất > PUMP_OFF_THRESHOLD (hysteresis)
- *   - Bảo vệ: tắt sau PUMP_MAX_RUNTIME, cooldown PUMP_COOLDOWN
- */
-
-// ═══════════════════════════════════════════════════════════════
-//  KHỞI TẠO QUẠT DC
-// ═══════════════════════════════════════════════════════════════
 void initFan() {
-  // Chân direction TB6612FNG
   pinMode(FAN_AIN1, OUTPUT);
   pinMode(FAN_AIN2, OUTPUT);
-  pinMode(FAN_STBY, OUTPUT);
-
-  // Đặt chiều quay cố định: AIN1=HIGH, AIN2=LOW → chiều thuận
   digitalWrite(FAN_AIN1, HIGH);
   digitalWrite(FAN_AIN2, LOW);
-  digitalWrite(FAN_STBY, HIGH);  // Kích hoạt driver
-
-  // Cấu hình PWM (LEDC) cho ESP32 Core v3.x
-  // API mới: ledcAttach(pin, freq, resolution) — không cần channel riêng
   ledcAttach(FAN_PWMA, FAN_PWM_FREQ, FAN_PWM_RES);
-  ledcWrite(FAN_PWMA, 0);  // Bắt đầu với quạt tắt
+  ledcWrite(FAN_PWMA, 0);
 
-  // Cấu hình PID
   fanPID.SetOutputLimits(0, FAN_PWM_MAX);
   fanPID.SetSampleTime(SENSOR_INTERVAL);
-  fanPID.SetMode(AUTOMATIC);  // Bật PID
+  fanPID.SetMode(AUTOMATIC);
 
-  g_fanMode    = FAN_MODE_AUTO;
-  g_fanPWM     = 0;
+  g_fanMode = FAN_MODE_AUTO;
+  g_fanPWM = 0;
   g_fanRunning = false;
-
-  Serial.printf("[FAN] Init OK  STBY=%d AIN1=%d AIN2=%d PWM=%d\n",
-                FAN_STBY, FAN_AIN1, FAN_AIN2, FAN_PWMA);
-  Serial.printf("[PID] Kp=%.1f Ki=%.1f Kd=%.1f  SP=%.1f°C\n",
-                PID_KP, PID_KI, PID_KD, g_fanSetpoint);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  KHỞI TẠO BƠM
-// ═══════════════════════════════════════════════════════════════
-void initPump() {
-  pinMode(PUMP_PIN, OUTPUT);
-
-  // Đảm bảo bơm tắt lúc khởi động
-  setPumpState(false);
-
-  g_pumpRunning = false;
-  g_pumpStart   = 0;
-  g_pumpStop    = 0;
-
-  Serial.printf("[PUMP] Init OK  pin=%d  ActiveHigh=%d\n",
-                PUMP_PIN, PUMP_ACTIVE_HIGH);
-  Serial.printf("[PUMP] ON<%.0f%%  OFF>%.0f%%  MaxRT=%lus\n",
-                g_pumpOnThresh, g_pumpOffThresh,
-                (unsigned long)PUMP_MAX_RUNTIME / 1000);
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  CẬP NHẬT QUẠT (Gọi mỗi SENSOR_INTERVAL)
-// ═══════════════════════════════════════════════════════════════
 void updateFan() {
   if (!g_sht30OK || isnan(g_temperature)) {
-    // Sensor lỗi → tắt quạt an toàn
     setFanPWM(0);
     return;
   }
-
   switch (g_fanMode) {
-    // ── OFF ──────────────────────────────────────────────────
     case FAN_MODE_OFF:
       setFanPWM(0);
       break;
-
-    // ── AUTO (PID) ───────────────────────────────────────────
     case FAN_MODE_AUTO:
-      pidInput    = (double)g_temperature;
+      pidInput = (double)g_temperature;
       pidSetpoint = (double)g_fanSetpoint;
-
-      // Dưới ngưỡng start temp → tắt quạt, reset integral
       if (g_temperature <= (g_fanSetpoint - FAN_DEADBAND)) {
         fanPID.SetMode(MANUAL);
         pidOutput = 0;
         setFanPWM(0);
-        fanPID.SetMode(AUTOMATIC);  // Reset tích phân
+        fanPID.SetMode(AUTOMATIC);
       } else {
         fanPID.Compute();
-
-        // Áp dụng PWM tối thiểu khi đang chạy (vượt ma sát tĩnh)
         int pwm = (int)pidOutput;
-        if (pwm > 0 && pwm < FAN_PWM_MIN) {
-          pwm = FAN_PWM_MIN;
-        }
+        if (pwm > 0 && pwm < FAN_PWM_MIN) pwm = FAN_PWM_MIN;
         setFanPWM(pwm);
       }
       break;
-
-    // ── MANUAL ──────────────────────────────────────────────
     case FAN_MODE_MANUAL:
       setFanPWM(g_manualPWM);
       break;
   }
-
-  // Log
-  const char* modeStr[] = {"OFF", "AUTO", "MAN"};
-  Serial.printf("[FAN] Mode=%-4s  PWM=%3d  Speed=%3d%%  T=%.1f°C  SP=%.1f°C\n",
-                modeStr[g_fanMode], g_fanPWM, g_fanSpeed,
-                g_temperature, (float)pidSetpoint);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  CẬP NHẬT BƠM (Gọi mỗi SENSOR_INTERVAL)
-// ═══════════════════════════════════════════════════════════════
-void updatePump() {
-  if (g_pumpManual) return;  // Đang điều khiển tay, bỏ qua logic tự động
-
-  unsigned long now = millis();
-
-  // ── Bảo vệ: tắt sau PUMP_MAX_RUNTIME ────────────────────
-  if (g_pumpRunning && (now - g_pumpStart >= PUMP_MAX_RUNTIME)) {
-    Serial.println("[PUMP] Đã chạy quá lâu → tắt (bảo vệ)");
-    setPumpState(false);
-    return;
-  }
-
-  // ── Cooldown: chưa đủ thời gian nghỉ ────────────────────
-  if (!g_pumpRunning && g_pumpStop > 0
-      && (now - g_pumpStop < PUMP_COOLDOWN)) {
-    return;  // Đang trong thời gian cooldown
-  }
-
-  if (isnan(g_soilMoisture)) return;
-
-  // ── Logic hysteresis ──────────────────────────────────────
-  if (!g_pumpRunning && g_soilMoisture < g_pumpOnThresh) {
-    Serial.printf("[PUMP] Đất khô (%.0f%% < %.0f%%) → BẬT BƠM\n",
-                  g_soilMoisture, g_pumpOnThresh);
-    setPumpState(true);
-
-  } else if (g_pumpRunning && g_soilMoisture > g_pumpOffThresh) {
-    Serial.printf("[PUMP] Đất đủ ẩm (%.0f%% > %.0f%%) → TẮT BƠM\n",
-                  g_soilMoisture, g_pumpOffThresh);
-    setPumpState(false);
-  }
-
-  // Log trạng thái bơm
-  if (g_pumpRunning) {
-    Serial.printf("[PUMP] ON  Dat=%.0f%%  Runtime=%lus\n",
-                  g_soilMoisture, (now - g_pumpStart) / 1000);
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  HÀM ĐIỀU KHIỂN CẤP THẤP
-// ═══════════════════════════════════════════════════════════════
-
-// Đặt PWM quạt (0-255) và cập nhật các biến trạng thái
 void setFanPWM(int pwm) {
   pwm = constrain(pwm, 0, FAN_PWM_MAX);
   ledcWrite(FAN_PWMA, pwm);
-  g_fanPWM     = pwm;
-  g_fanSpeed   = map(pwm, 0, FAN_PWM_MAX, 0, 100);
+  g_fanPWM = pwm;
+  g_fanSpeed = map(pwm, 0, FAN_PWM_MAX, 0, 100);
   g_fanRunning = (pwm > 0);
 }
 
-// Bật/tắt bơm, ghi timestamp
-void setPumpState(bool on) {
-  unsigned long now = millis();
-  if (on) {
-    digitalWrite(PUMP_PIN, PUMP_ACTIVE_HIGH ? HIGH : LOW);
-    if (!g_pumpRunning) g_pumpStart = now;
-    g_pumpRunning = true;
+void setFanMode(int mode) { g_fanMode = mode; if (mode == FAN_MODE_AUTO) fanPID.SetMode(AUTOMATIC); }
+void setFanManualSpeed(int pwm) { g_manualPWM = constrain(pwm, 0, FAN_PWM_MAX); g_fanMode = FAN_MODE_MANUAL; setFanPWM(g_manualPWM); }
+void setFanSetpoint(float sp) { g_fanSetpoint = sp; pidSetpoint = sp; heaterSetpoint = sp - 2.0; }
+
+void initHeater() {
+  pinMode(HEATER_BIN1, OUTPUT);
+  pinMode(HEATER_BIN2, OUTPUT);
+  digitalWrite(HEATER_BIN1, HIGH);
+  digitalWrite(HEATER_BIN2, LOW);
+  ledcAttach(HEATER_PWMB, FAN_PWM_FREQ, FAN_PWM_RES);
+  ledcWrite(HEATER_PWMB, 0);
+  
+  heaterPID.SetOutputLimits(0, 255);
+  heaterPID.SetSampleTime(SENSOR_INTERVAL);
+  heaterPID.SetMode(AUTOMATIC);
+
+  g_heaterRunning = false;
+  g_heaterManual = false;
+}
+
+void updateHeater() {
+  if (g_heaterManual) return;
+  if (!g_sht30OK || isnan(g_temperature)) {
+    setHeaterPWM(0);
+    return;
+  }
+  
+  pidInput = (double)g_temperature;
+  heaterSetpoint = (double)g_fanSetpoint - 2.0; // Giữ khoảng cách 2 độ để không bị đụng độ với quạt
+  
+  if (g_temperature >= heaterSetpoint) {
+    heaterPID.SetMode(MANUAL);
+    heaterPidOutput = 0;
+    setHeaterPWM(0);
+    heaterPID.SetMode(AUTOMATIC);
   } else {
-    digitalWrite(PUMP_PIN, PUMP_ACTIVE_HIGH ? LOW : HIGH);
-    if (g_pumpRunning) g_pumpStop = now;
-    g_pumpRunning = false;
+    heaterPID.Compute();
+    int pwm = (int)heaterPidOutput;
+    if (pwm > 0 && pwm < FAN_PWM_MIN) pwm = FAN_PWM_MIN;
+    setHeaterPWM(pwm);
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  API ĐIỀU KHIỂN (gọi từ web_server_local.ino)
-// ═══════════════════════════════════════════════════════════════
-
-// Đặt chế độ quạt: 0=OFF, 1=AUTO, 2=MANUAL
-void setFanMode(int mode) {
-  if (mode < FAN_MODE_OFF || mode > FAN_MODE_MANUAL) return;
-  g_fanMode = mode;
-  if (mode == FAN_MODE_AUTO) {
-    fanPID.SetMode(AUTOMATIC);
-  }
-  Serial.printf("[FAN] Chế độ → %d\n", mode);
+void setHeaterPWM(int pwm) {
+  pwm = constrain(pwm, 0, 255);
+  ledcWrite(HEATER_PWMB, pwm);
+  g_heaterPWM = pwm;
+  g_heaterRunning = (pwm > 0);
 }
 
-// Đặt tốc độ thủ công (0-255), tự chuyển sang MANUAL
-void setFanManualSpeed(int pwm) {
-  g_manualPWM = constrain(pwm, 0, FAN_PWM_MAX);
-  g_fanMode   = FAN_MODE_MANUAL;
-  Serial.printf("[FAN] Thủ công PWM=%d\n", g_manualPWM);
+void setHeaterManual(bool on) {
+  g_heaterManual = true;
+  setHeaterPWM(on ? 255 : 0);
 }
 
-// Đặt setpoint PID nhiệt độ
-void setFanSetpoint(float sp) {
-  g_fanSetpoint = constrain(sp, 20.0f, 45.0f);
-  pidSetpoint = (double)g_fanSetpoint;
-  Serial.printf("[PID] Setpoint → %.1f°C\n", g_fanSetpoint);
+void initPump() {
+  pinMode(PUMP_PIN, OUTPUT);
+  setPumpState(false);
 }
 
-// Bật/tắt bơm thủ công từ web
-void setPumpManual(bool on) {
-  g_pumpManual = true;
-  setPumpState(on);
-  Serial.printf("[PUMP] Điều khiển tay → %s\n", on ? "ON" : "OFF");
+void updatePump() {
+  if (g_pumpManual) return;
+  unsigned long now = millis();
+  if (g_pumpRunning && (now - g_pumpStart >= 30000)) { setPumpState(false); return; }
+  if (isnan(g_soilMoisture)) return;
+  if (!g_pumpRunning && g_soilMoisture < g_pumpOnThresh) setPumpState(true);
+  else if (g_pumpRunning && g_soilMoisture > g_pumpOffThresh) setPumpState(false);
 }
 
-// Trả bơm về chế độ tự động
-void setPumpAuto() {
-  g_pumpManual = false;
-  Serial.println("[PUMP] Chế độ tự động");
+void setPumpState(bool on) {
+  digitalWrite(PUMP_PIN, on ? (PUMP_ACTIVE_HIGH ? HIGH : LOW) : (PUMP_ACTIVE_HIGH ? LOW : HIGH));
+  if (on && !g_pumpRunning) g_pumpStart = millis();
+  if (!on && g_pumpRunning) g_pumpStop = millis();
+  g_pumpRunning = on;
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  KHỞI TẠO PHUN SƯƠNG
-// ═══════════════════════════════════════════════════════════════
+void setPumpManual(bool on) { g_pumpManual = true; setPumpState(on); }
+
 void initMist() {
   pinMode(MIST_PIN, OUTPUT);
-  setMistState(false);  // Tắt lúc khởi động
-  g_mistRunning = false;
-  g_mistManual  = false;
-  Serial.printf("[MIST] Init OK  pin=%d  ActiveHigh=%d\n",
-                MIST_PIN, MIST_ACTIVE_HIGH);
+  setMistState(false);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  CẬP NHẬT PHUN SƯƠNG (Gọi mỗi SENSOR_INTERVAL)
-//  Logic: Bật cùng quạt — khi quạt đang chạy (AUTO hoặc MANUAL)
-//         thì phun sương cũng bật. Quạt tắt → phun sương tắt.
-// ═══════════════════════════════════════════════════════════════
 void updateMist() {
-  if (g_mistManual) return;  // Đang điều khiển tay, bỏ qua
-
-  bool shouldRun = g_fanRunning;  // Phun sương liên kết với quạt
-
-  if (shouldRun && !g_mistRunning) {
-    setMistState(true);
-    Serial.println("[MIST] AUTO: Quạt đang chạy → BẬT phun sương");
-  } else if (!shouldRun && g_mistRunning) {
-    setMistState(false);
-    Serial.println("[MIST] AUTO: Quạt tắt → TẮT phun sương");
-  }
+  if (g_mistManual) return;
+  bool shouldRun = g_fanRunning;
+  if (shouldRun && !g_mistRunning) setMistState(true);
+  else if (!shouldRun && g_mistRunning) setMistState(false);
 }
 
-// Bật/tắt phun sương (cấp thấp)
 void setMistState(bool on) {
-  if (on) {
-    digitalWrite(MIST_PIN, MIST_ACTIVE_HIGH ? HIGH : LOW);
-    g_mistRunning = true;
-  } else {
-    digitalWrite(MIST_PIN, MIST_ACTIVE_HIGH ? LOW : HIGH);
-    g_mistRunning = false;
-  }
+  digitalWrite(MIST_PIN, on ? (MIST_ACTIVE_HIGH ? HIGH : LOW) : (MIST_ACTIVE_HIGH ? LOW : HIGH));
+  g_mistRunning = on;
 }
 
-// API: Bật/tắt phun sương thủ công từ web
-void setMistManual(bool on) {
-  g_mistManual = true;
-  setMistState(on);
-  Serial.printf("[MIST] Điều khiển tay → %s\n", on ? "ON" : "OFF");
-}
+void setMistManual(bool on) { g_mistManual = true; setMistState(on); }
 
-// API: Trả phun sương về chế độ tự động
-void setMistAuto() {
-  g_mistManual = false;
-  Serial.println("[MIST] Chế độ tự động");
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  KHỞI TẠO ĐÈN
-// ═══════════════════════════════════════════════════════════════
 void initLight() {
   pinMode(LIGHT_PIN, OUTPUT);
-  setLightState(false);  // Tắt lúc khởi động
-  g_lightRunning = false;
-  g_lightManual  = false;
-  Serial.printf("[LIGHT] Init OK  pin=%d  ActiveHigh=%d  Thresh=%.0f lux\n",
-                LIGHT_PIN, LIGHT_ACTIVE_HIGH, g_lightThresh);
+  setLightState(false);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  CẬP NHẬT ĐÈN (Gọi mỗi SENSOR_INTERVAL)
-//  Logic: Bật khi ánh sáng < ngưỡng, tắt khi > ngưỡng + hysteresis
-//  Hysteresis 200 lux tránh bật tắt liên tục
-// ═══════════════════════════════════════════════════════════════
 void updateLight() {
-  if (g_lightManual) return;  // Đang điều khiển tay, bỏ qua
-
+  if (g_lightManual) return;
   if (!g_bh1750OK || isnan(g_lightLux)) return;
-
-  const float hysteresis = 200.0;  // Tránh bật tắt liên tục
-
-  if (!g_lightRunning && g_lightLux < g_lightThresh) {
-    setLightState(true);
-    Serial.printf("[LIGHT] AUTO: Tối (%.0f lux < %.0f) → BẬT đèn\n",
-                  g_lightLux, g_lightThresh);
-  } else if (g_lightRunning && g_lightLux > (g_lightThresh + hysteresis)) {
-    setLightState(false);
-    Serial.printf("[LIGHT] AUTO: Sáng (%.0f lux > %.0f) → TẮT đèn\n",
-                  g_lightLux, g_lightThresh + hysteresis);
-  }
+  if (!g_lightRunning && g_lightLux < g_lightThresh) setLightState(true);
+  else if (g_lightRunning && g_lightLux > (g_lightThresh + 200)) setLightState(false);
 }
 
-// Bật/tắt đèn (cấp thấp)
 void setLightState(bool on) {
-  if (on) {
-    digitalWrite(LIGHT_PIN, LIGHT_ACTIVE_HIGH ? HIGH : LOW);
-    g_lightRunning = true;
-  } else {
-    digitalWrite(LIGHT_PIN, LIGHT_ACTIVE_HIGH ? LOW : HIGH);
-    g_lightRunning = false;
+  digitalWrite(LIGHT_PIN, on ? (LIGHT_ACTIVE_HIGH ? HIGH : LOW) : (LIGHT_ACTIVE_HIGH ? LOW : HIGH));
+  g_lightRunning = on;
+}
+
+void setLightManual(bool on) { g_lightManual = true; setLightState(on); }
+
+void initValves() {
+  pinMode(VALVE1_PIN, OUTPUT);
+  pinMode(VALVE2_PIN, OUTPUT);
+  setValveState(1, false);
+  setValveState(2, false);
+}
+
+void updateValves() {
+  if (g_valveManual) return;
+  // Nếu bơm chạy thì bật van 1, mặc định
+  if (g_pumpRunning && !g_valve1Running) setValveState(1, true);
+  else if (!g_pumpRunning && g_valve1Running) setValveState(1, false);
+}
+
+void setValveState(int v, bool on) {
+  if (v == 1) {
+    digitalWrite(VALVE1_PIN, on ? (PUMP_ACTIVE_HIGH ? HIGH : LOW) : (PUMP_ACTIVE_HIGH ? LOW : HIGH));
+    g_valve1Running = on;
+  } else if (v == 2) {
+    digitalWrite(VALVE2_PIN, on ? (PUMP_ACTIVE_HIGH ? HIGH : LOW) : (PUMP_ACTIVE_HIGH ? LOW : HIGH));
+    g_valve2Running = on;
+  }
+}
+void setValveManual(int v, bool on) { g_valveManual = true; setValveState(v, on); }
+
+void initRoof() {
+  // Servo using ESP32Servo
+  roofServo.attach(SERVO_PIN);
+  setRoofAngle(0); // Đóng mái
+}
+
+void updateRoof() {
+  if (g_roofManual) return;
+  if (!g_sht30OK || isnan(g_temperature)) return;
+  // Bật quạt thì mở mái (chỉ mở khi quá nóng)
+  if (g_temperature > g_fanSetpoint + 2.0 && g_roofAngle != 180) {
+    setRoofAngle(180);
+  } else if (g_temperature <= g_fanSetpoint && g_roofAngle != 0) {
+    setRoofAngle(0);
   }
 }
 
-// API: Bật/tắt đèn thủ công từ web
-void setLightManual(bool on) {
-  g_lightManual = true;
-  setLightState(on);
-  Serial.printf("[LIGHT] Điều khiển tay → %s\n", on ? "ON" : "OFF");
+void setRoofAngle(int angle) {
+  angle = constrain(angle, 0, 180);
+  roofServo.write(angle);
+  g_roofAngle = angle;
 }
-
-// API: Trả đèn về chế độ tự động
-void setLightAuto() {
-  g_lightManual = false;
-  Serial.println("[LIGHT] Chế độ tự động");
+void setRoofManual(int angle) {
+  g_roofManual = true;
+  setRoofAngle(angle);
 }

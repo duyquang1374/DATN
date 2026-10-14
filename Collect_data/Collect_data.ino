@@ -15,32 +15,36 @@
  *
  *  Phần cứng:
  *    - ESP32 DevKit
- *    - DHT11 → GPIO 4
- *    - MH Sensor (Ánh sáng) → GPIO 34 (Analog)
+ *    - SHT30 (Nhiệt độ & Độ ẩm) → I2C (SDA 21, SCL 22, địa chỉ 0x44 / 0x45)
+ *    - BH1750 (Cường độ ánh sáng) → I2C (SDA 21, SCL 22, địa chỉ 0x23 / 0x5C)
  *    - LED_BUILTIN → GPIO 2
  *
  *  Libraries cần cài (Arduino IDE → Library Manager):
- *    - DHT sensor library (by Adafruit)
+ *    - Adafruit SHT31 Library (by Adafruit)
+ *    - BH1750 (by Christopher Laws)
  *    - PubSubClient (Nick O'Leary)
  *    - ArduinoJson (Benoit Blanchon)
  *    - LittleFS (built-in ESP32)
  * ============================================================
  */
 
-#include <DHT.h>
+#include <Adafruit_SHT31.h>
+#include <BH1750.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 #include <PubSubClient.h>
 #include <WebServer.h>
 #include <WiFi.h>
 #include <Wire.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <time.h>
 
 // ======================== CẤU HÌNH ========================
 
 // --- WiFi ---
-#define WIFI_SSID "Xoi Banh My Chi Nga"
-#define WIFI_PASSWORD "13071982"
+#define WIFI_SSID "Ngan Ha nha co Sau chu Do"
+#define WIFI_PASSWORD "0983652182"
 
 // --- MQTT Broker (tùy chọn) ---
 #define MQTT_ENABLED true // Đặt false nếu không dùng MQTT
@@ -49,12 +53,11 @@
 #define MQTT_TOPIC "greenhouse/sensor"
 #define MQTT_CLIENT_ID "ESP32_Greenhouse"
 
-// --- Sensor Pins ---
-#define DHTPIN 4
-#define DHTTYPE DHT11
-#define LIGHT_SENSOR_PIN 34 // Pin Analog cho MH Sensor
+// --- Firebase (Cloud) ---
+#define FIREBASE_ENABLED true
+#define FIREBASE_URL "https://clooect-data-default-rtdb.asia-southeast1.firebasedatabase.app"
 
-// --- I2C Pins (Dành cho các module khác nếu có) ---
+// --- I2C Pins (Dùng chung cho SHT30 và BH1750) ---
 #define I2C_SDA 21
 #define I2C_SCL 22
 
@@ -79,8 +82,12 @@
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
-DHT dht(DHTPIN, DHTTYPE); // DHT11
+Adafruit_SHT31 sht30;
+BH1750 lightMeter;
 WebServer server(80);
+
+bool sht30OK = false;
+bool bh1750OK = false;
 
 // ======================== VARIABLES ========================
 
@@ -107,23 +114,41 @@ void setup() {
   Serial.println();
   Serial.println("============================================");
   Serial.println("  NHÀ MÀNG THÔNG MINH - ESP32 GATEWAY v3");
-  Serial.println("  DHT11 + MH Sensor | Tự lưu + Web Server");
+  Serial.println("  SHT30 + BH1750 (I2C) | Tự lưu + Web Server");
   Serial.println("============================================");
 
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
 
-  // I2C
+  // Khởi động giao tiếp I2C
   Wire.begin(I2C_SDA, I2C_SCL);
   Serial.println("[I2C] SDA=" + String(I2C_SDA) + " SCL=" + String(I2C_SCL));
 
-  // DHT11
-  dht.begin();
-  Serial.println("[DHT11] Init OK ✓");
+  // Khởi tạo SHT30 (địa chỉ mặc định 0x44 hoặc 0x45)
+  if (sht30.begin(0x44)) {
+    sht30.heater(false);
+    sht30OK = true;
+    Serial.println("[SHT30] Init OK (0x44) ✓");
+  } else if (sht30.begin(0x45)) {
+    sht30.heater(false);
+    sht30OK = true;
+    Serial.println("[SHT30] Init OK (0x45) ✓");
+  } else {
+    sht30OK = false;
+    Serial.println("[SHT30] FAILED! Kiểm tra kết nối I2C.");
+  }
 
-  // MH Sensor
-  pinMode(LIGHT_SENSOR_PIN, INPUT);
-  Serial.println("[MH-Sensor] Init OK ✓");
+  // Khởi tạo BH1750 (địa chỉ mặc định 0x23 hoặc 0x5C)
+  if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x23, &Wire)) {
+    bh1750OK = true;
+    Serial.println("[BH1750] Init OK (0x23) ✓");
+  } else if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x5C, &Wire)) {
+    bh1750OK = true;
+    Serial.println("[BH1750] Init OK (0x5C) ✓");
+  } else {
+    bh1750OK = false;
+    Serial.println("[BH1750] FAILED! Kiểm tra kết nối I2C.");
+  }
 
   // LittleFS
   if (!LittleFS.begin(true)) { // true = format if failed
@@ -475,54 +500,72 @@ void handleDelete() {
 // ======================== SENSOR & STORAGE ========================
 
 void readAndSave() {
-  // === Đọc DHT11 ===
-  float temperature = dht.readTemperature();
-  float humidity = dht.readHumidity();
-
-  if (isnan(temperature) || isnan(humidity)) {
-    sensorErrorCount++;
-  } else {
-    sensorErrorCount = 0;
-  }
-
-  if (sensorErrorCount > 0) {
-    Serial.println("[DHT11] Read error! (" + String(sensorErrorCount) + "/" +
-                   String(MAX_SENSOR_ERRORS) + ")");
-    if (sensorErrorCount >= MAX_SENSOR_ERRORS) {
-      Serial.println("[DHT11] TOO MANY ERRORS! Check wiring.");
+  // Thử kết nối lại nếu trước đó bị mất kết nối I2C
+  if (!sht30OK) {
+    if (sht30.begin(0x44) || sht30.begin(0x45)) {
+      sht30.heater(false);
+      sht30OK = true;
+      Serial.println("[SHT30] Reconnected ✓");
     }
   }
 
-  // === Đọc MH Sensor ===
-  int rawLight = analogRead(LIGHT_SENSOR_PIN);
-  
-  // MH Sensor thường cho giá trị ngược (Sáng -> gần 0, Tối -> gần 4095 trên ESP32)
-  // Ta lật ngược lại (4095 - rawLight) để Sáng có giá trị cao, Tối có giá trị thấp.
-  // Đồng thời nhân tỷ lệ để quy đổi tương đối sang dải ~10000 lux.
-  // Lưu ý: Cảm biến quang trở (LDR) chỉ cho giá trị lux ước lượng, không chính xác tuyệt đối như BH1750.
-  float light = (4095 - rawLight) * (10000.0 / 4095.0);
-
-  // Kiểm tra lỗi tổng hợp
-  if (isnan(temperature) || isnan(humidity)) {
-    Serial.println("[SENSOR] DHT11 data invalid, skipping...");
-    return;
+  if (!bh1750OK) {
+    if (lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x23, &Wire) ||
+        lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x5C, &Wire)) {
+      bh1750OK = true;
+      Serial.println("[BH1750] Reconnected ✓");
+    }
   }
 
-  if (light < 0) {
-    Serial.println("[MH-Sensor] Read error, skipping...");
+  // === Đọc SHT30 ===
+  float temperature = NAN;
+  float humidity = NAN;
+  if (sht30OK) {
+    temperature = sht30.readTemperature();
+    humidity = sht30.readHumidity();
+    if (isnan(temperature) || isnan(humidity)) {
+      sht30OK = false;
+    }
+  }
+
+  // === Đọc BH1750 ===
+  float light = NAN;
+  if (bh1750OK) {
+    float lux = lightMeter.readLightLevel();
+    if (lux >= 0.0f && !isnan(lux) && lux <= 65535.0f) {
+      light = lux;
+    } else {
+      bh1750OK = false;
+    }
+  }
+
+  // Kiểm tra lỗi cảm biến
+  if (isnan(temperature) || isnan(humidity) || isnan(light)) {
+    sensorErrorCount++;
+    Serial.println("[SENSOR] Read error! (" + String(sensorErrorCount) + "/" +
+                   String(MAX_SENSOR_ERRORS) + ")");
+    if (isnan(temperature) || isnan(humidity)) {
+      Serial.println("[SHT30] Error reading temperature/humidity!");
+    }
+    if (isnan(light)) {
+      Serial.println("[BH1750] Error reading lux level!");
+    }
+    if (sensorErrorCount >= MAX_SENSOR_ERRORS) {
+      Serial.println("[SENSOR] TOO MANY ERRORS! Kiểm tra dây I2C.");
+    }
     return;
   }
   sensorErrorCount = 0;
 
-  // Validate
-  if (temperature < -10 || temperature > 80 || humidity < 0 || humidity > 100) {
-    Serial.println("[DHT11] Invalid data: " + String(temperature) + "°C, " +
+  // Validate khoảng giá trị hợp lệ
+  if (temperature < -40 || temperature > 125 || humidity < 0 || humidity > 100) {
+    Serial.println("[SHT30] Invalid data: " + String(temperature) + "°C, " +
                    String(humidity) + "%");
     return;
   }
 
-  if (light > 65535) {
-    Serial.println("[MH-Sensor] Invalid light: " + String(light));
+  if (light < 0 || light > 65535) {
+    Serial.println("[BH1750] Invalid light: " + String(light) + " lux");
     return;
   }
 
@@ -552,6 +595,11 @@ void readAndSave() {
   // === GỬI MQTT (nếu bật) ===
   if (MQTT_ENABLED && mqttClient.connected()) {
     sendMQTT(timeStr, temperature, humidity, light);
+  }
+
+  // === GỬI FIREBASE (nếu bật) ===
+  if (FIREBASE_ENABLED && WiFi.status() == WL_CONNECTED) {
+    sendFirebase(timeStr, temperature, humidity, light);
   }
 
   // Print
@@ -636,6 +684,48 @@ void sendMQTT(const char *timeStr, float temp, float humid, float light) {
   if (mqttClient.publish(MQTT_TOPIC, buffer)) {
     Serial.println("[MQTT] Sent ✓");
   }
+}
+
+void sendFirebase(const char *timeStr, float temp, float humid, float light) {
+  WiFiClientSecure client;
+  client.setInsecure(); // Bỏ qua kiểm tra chứng chỉ SSL/TLS
+  
+  HTTPClient http;
+  String currentUrl = String(FIREBASE_URL) + "/greenhouse/current.json";
+  
+  // 1. Cập nhật trạng thái hiện tại (PUT - đè dữ liệu cũ)
+  StaticJsonDocument<256> doc;
+  doc["temperature"] = temp;
+  doc["humidity"] = humid;
+  doc["light"] = light;
+  doc["timestamp"] = timeStr;
+  doc["last_update"] = millis() / 1000;
+  
+  String payload;
+  serializeJson(doc, payload);
+  
+  http.begin(client, currentUrl);
+  http.addHeader("Content-Type", "application/json");
+  int httpCode = http.PUT(payload);
+  
+  if (httpCode > 0) {
+    Serial.println("[FIREBASE] Đã đồng bộ trạng thái hiện tại (Mã " + String(httpCode) + ")");
+  } else {
+    Serial.println("[FIREBASE] Lỗi kết nối PUT: " + http.errorToString(httpCode));
+  }
+  http.end();
+
+  // 2. Lưu vào lịch sử (POST - thêm dữ liệu mới để tải CSV)
+  String logsUrl = String(FIREBASE_URL) + "/greenhouse/logs.json";
+  http.begin(client, logsUrl);
+  http.addHeader("Content-Type", "application/json");
+  int httpCodeLogs = http.POST(payload);
+  if (httpCodeLogs > 0) {
+    Serial.println("[FIREBASE] Đã lưu lịch sử log (Mã " + String(httpCodeLogs) + ")");
+  } else {
+    Serial.println("[FIREBASE] Lỗi kết nối POST: " + http.errorToString(httpCodeLogs));
+  }
+  http.end();
 }
 
 unsigned long countRecords() {

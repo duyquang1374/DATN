@@ -1,12 +1,3 @@
-/*
- * lora_comm.ino
- * Quản lý giao tiếp qua UART với module LoRa E32
- * Node (Nhà màng) <---> Gateway
- */
-
-// ═══════════════════════════════════════════════════════════════
-//  GỬI DỮ LIỆU CẢM BIẾN LÊN GATEWAY
-// ═══════════════════════════════════════════════════════════════
 void sendDataToGateway() {
   StaticJsonDocument<512> doc;
   doc["type"]        = "status";
@@ -34,6 +25,17 @@ void sendDataToGateway() {
   doc["light_m"]     = g_lightManual;
   doc["light_th"]    = g_lightThresh;
   
+  doc["heater"]      = g_heaterRunning;
+  doc["heater_m"]    = g_heaterManual;
+  doc["heater_pwm"]  = g_heaterPWM;
+
+  doc["valve1"]      = g_valve1Running;
+  doc["valve2"]      = g_valve2Running;
+  doc["valve_m"]     = g_valveManual;
+  
+  doc["roof"]        = g_roofAngle;
+  doc["roof_m"]      = g_roofManual;
+  
   doc["s_ok"]        = g_sht30OK;
   doc["se_ok"]       = g_sht30ExtOK;
   doc["b_ok"]        = g_bh1750OK;
@@ -42,46 +44,30 @@ void sendDataToGateway() {
 
   char buf[512];
   size_t len = serializeJson(doc, buf);
-  
-  // Gửi qua LoRa (thêm \n để gateway dễ parse)
   buf[len] = '\n';
   buf[len+1] = '\0';
   LoRaSerial.print(buf);
-  
-  Serial.println("[LoRa] Sent status");
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  GỬI DỮ LIỆU DỰ BÁO LÊN GATEWAY
-// ═══════════════════════════════════════════════════════════════
 void sendForecastToGateway() {
   if (!g_forecast_ready) return;
-  
   StaticJsonDocument<384> doc;
   doc["type"] = "forecast";
-  
   JsonArray arrT = doc.createNestedArray("temp");
   JsonArray arrH = doc.createNestedArray("humid");
   JsonArray arrL = doc.createNestedArray("lux");
-  
   for (int h = 0; h < FC_HORIZONS; h++) {
     arrT.add(isnan(g_fc_temp[h])  ? 0 : round(g_fc_temp[h]  * 10) / 10.0f);
     arrH.add(isnan(g_fc_humid[h]) ? 0 : round(g_fc_humid[h] * 10) / 10.0f);
     arrL.add(isnan(g_fc_lux[h])   ? 0 : (int)g_fc_lux[h]);
   }
-
   char buf[384];
   size_t len = serializeJson(doc, buf);
   buf[len] = '\n';
   buf[len+1] = '\0';
   LoRaSerial.print(buf);
-  
-  Serial.println("[LoRa] Sent forecast");
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  NHẬN VÀ XỬ LÝ LỆNH TỪ GATEWAY
-// ═══════════════════════════════════════════════════════════════
 void checkLoRaCommand() {
   static String buf = "";
   while (LoRaSerial.available()) {
@@ -89,105 +75,66 @@ void checkLoRaCommand() {
     if (c == '\n') {
       buf.trim();
       if (buf.length() > 0) {
-        Serial.println("[LoRa] Nhận: " + buf);
-        
         StaticJsonDocument<256> doc;
         DeserializationError error = deserializeJson(doc, buf);
-        if (error) {
-          Serial.println("[LoRa] Lỗi parse JSON!");
-        } else if (doc.containsKey("cmd")) {
+        if (!error && doc.containsKey("cmd")) {
           String cmd = doc["cmd"].as<String>();
           
-          // -- Bơm --
-          if (cmd == "pump_on") {
-            g_pumpManual = true;
-            setPumpState(true);
-            Serial.println("[LoRa] CMD: Bật bơm");
-          } 
-          else if (cmd == "pump_off") {
-            g_pumpManual = true;
-            setPumpState(false);
-            Serial.println("[LoRa] CMD: Tắt bơm");
-          } 
-          else if (cmd == "pump_auto") {
-            g_pumpManual = false;
-            Serial.println("[LoRa] CMD: Bơm Auto");
-          }
+          if (cmd == "pump_on") setPumpManual(true);
+          else if (cmd == "pump_off") setPumpManual(false);
+          else if (cmd == "pump_auto") g_pumpManual = false;
           
-          // -- Quạt --
           else if (cmd == "fan") {
-            if (doc.containsKey("mode")) {
-              g_fanMode = doc["mode"];
-            }
-            if (doc.containsKey("speed") && g_fanMode == FAN_MODE_MANUAL) {
-              g_manualPWM = constrain((int)doc["speed"], 0, 255);
-            }
-            if (doc.containsKey("setpoint") && g_fanMode == FAN_MODE_AUTO) {
-              g_fanSetpoint = doc["setpoint"];
-              pidSetpoint = g_fanSetpoint;
-            }
-            Serial.printf("[LoRa] CMD: Fan mode=%d manualPWM=%d\n", g_fanMode, g_manualPWM);
+            if (doc.containsKey("mode")) g_fanMode = doc["mode"];
+            if (doc.containsKey("speed") && g_fanMode == FAN_MODE_MANUAL) setFanManualSpeed((int)doc["speed"]);
+            if (doc.containsKey("setpoint") && g_fanMode == FAN_MODE_AUTO) setFanSetpoint(doc["setpoint"]);
           }
-          
-          // -- Cấu hình --
           else if (cmd == "config") {
             if (doc.containsKey("pump_on")) g_pumpOnThresh = doc["pump_on"];
             if (doc.containsKey("pump_off")) g_pumpOffThresh = doc["pump_off"];
-            if (doc.containsKey("fan_sp")) {
-              g_fanSetpoint = doc["fan_sp"];
-              pidSetpoint = g_fanSetpoint;
-            }
+            if (doc.containsKey("fan_sp")) setFanSetpoint(doc["fan_sp"]);
             if (doc.containsKey("light_th")) g_lightThresh = doc["light_th"];
             saveConfig();
-            Serial.println("[LoRa] CMD: Cập nhật cấu hình");
           }
           
-          // -- Phun sương --
-          else if (cmd == "mist_on") {
-            g_mistManual = true;
-            setMistState(true);
-            Serial.println("[LoRa] CMD: Bật phun sương");
-          }
-          else if (cmd == "mist_off") {
-            g_mistManual = true;
-            setMistState(false);
-            Serial.println("[LoRa] CMD: Tắt phun sương");
-          }
-          else if (cmd == "mist_auto") {
-            g_mistManual = false;
-            Serial.println("[LoRa] CMD: Phun sương Auto");
-          }
+          else if (cmd == "mist_on") setMistManual(true);
+          else if (cmd == "mist_off") setMistManual(false);
+          else if (cmd == "mist_auto") g_mistManual = false;
           
-          // -- Đèn --
-          else if (cmd == "light_on") {
-            g_lightManual = true;
-            setLightState(true);
-            Serial.println("[LoRa] CMD: Bật đèn");
-          }
-          else if (cmd == "light_off") {
-            g_lightManual = true;
-            setLightState(false);
-            Serial.println("[LoRa] CMD: Tắt đèn");
-          }
-          else if (cmd == "light_auto") {
-            g_lightManual = false;
-            Serial.println("[LoRa] CMD: Đèn Auto");
-          }
+          else if (cmd == "light_on") setLightManual(true);
+          else if (cmd == "light_off") setLightManual(false);
+          else if (cmd == "light_auto") g_lightManual = false;
           
-          // Cập nhật ngay cơ cấu chấp hành
+          else if (cmd == "heater_on") setHeaterManual(true);
+          else if (cmd == "heater_off") setHeaterManual(false);
+          else if (cmd == "heater_auto") g_heaterManual = false;
+          
+          else if (cmd == "valve1_on") setValveManual(1, true);
+          else if (cmd == "valve1_off") setValveManual(1, false);
+          else if (cmd == "valve2_on") setValveManual(2, true);
+          else if (cmd == "valve2_off") setValveManual(2, false);
+          else if (cmd == "valve_auto") g_valveManual = false;
+          
+          else if (cmd == "roof_open") setRoofManual(180);
+          else if (cmd == "roof_close") setRoofManual(0);
+          else if (cmd == "roof_auto") g_roofManual = false;
+
           updateFan();
           updatePump();
           updateMist();
           updateLight();
+          updateHeater();
+          updateValves();
+          updateRoof();
           
-          // Gửi lại trạng thái ngay lập tức để Gateway/Web cập nhật nhanh
           sendDataToGateway();
+          sendHMIData();
         }
       }
       buf = "";
     } else {
       buf += c;
-      if (buf.length() > 256) buf = ""; // chống tràn
+      if (buf.length() > 256) buf = "";
     }
   }
 }

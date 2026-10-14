@@ -80,6 +80,17 @@ void checkLoRaMessage() {
               g_lightManual   = doc["light_m"]  | false;
               g_lightThresh   = doc["light_th"] | 1000.0f;
 
+              g_heaterRunning = doc["heater"]   | false;
+              g_heaterManual  = doc["heater_m"] | false;
+              g_heaterPWM     = doc["heater_pwm"]| 0;
+
+              g_valve1Running = doc["valve1"]   | false;
+              g_valve2Running = doc["valve2"]   | false;
+              g_valveManual   = doc["valve_m"]  | false;
+
+              g_roofAngle     = doc["roof"]     | 0;
+              g_roofManual    = doc["roof_m"]   | false;
+
               g_sht30OK       = doc["s_ok"]     | false;
               g_sht30ExtOK    = doc["se_ok"]    | false;
               g_bh1750OK      = doc["b_ok"]     | false;

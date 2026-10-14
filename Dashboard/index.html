@@ -363,6 +363,84 @@
 
     </div><!-- end Mist + Light Grid -->
 
+    <!-- Heater + Roof Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
+      <!-- Heater Card -->
+      <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-orange-500"></div>
+        <div class="flex justify-between items-center mb-5">
+          <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
+            <span class="text-lg">🔥</span> Sưởi Ấm
+          </div>
+          <span id="heater-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
+        </div>
+        <div class="text-center mb-4">
+          <div id="heater-state" class="text-2xl font-bold text-slate-500">TẮT</div>
+          <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="heater-mode" class="font-semibold">AUTO</span></div>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          <button onclick="setHeater('auto','btn-heater-auto')" id="btn-heater-auto" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
+          <button onclick="setHeater('on','btn-heater-on')" id="btn-heater-on" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
+          <button onclick="setHeater('off','btn-heater-off')" id="btn-heater-off" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
+        </div>
+      </div>
+
+      <!-- Roof Card -->
+      <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 to-blue-500"></div>
+        <div class="flex justify-between items-center mb-5">
+          <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
+            <span class="text-lg">🏠</span> Mái Che
+          </div>
+          <span id="roof-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">ĐÓNG</span>
+        </div>
+        <div class="text-center mb-4">
+          <div id="roof-state" class="text-2xl font-bold text-slate-500">ĐÓNG</div>
+          <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="roof-mode" class="font-semibold">AUTO</span></div>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          <button onclick="setRoof('auto','btn-roof-auto')" id="btn-roof-auto" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
+          <button onclick="setRoof('open','btn-roof-open')" id="btn-roof-open" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">MỞ</button>
+          <button onclick="setRoof('close','btn-roof-close')" id="btn-roof-close" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">ĐÓNG</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Valves Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
+      <!-- Valve 1 -->
+      <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
+        <div class="flex justify-between items-center mb-5">
+          <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
+            <span class="text-lg">🚰</span> Van 1
+          </div>
+          <span id="valve1-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          <button onclick="setValve(1,'auto','btn-v1-auto')" id="btn-v1-auto" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
+          <button onclick="setValve(1,'on','btn-v1-on')" id="btn-v1-on" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
+          <button onclick="setValve(1,'off','btn-v1-off')" id="btn-v1-off" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
+        </div>
+      </div>
+      <!-- Valve 2 -->
+      <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-400 to-purple-500"></div>
+        <div class="flex justify-between items-center mb-5">
+          <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
+            <span class="text-lg">🚰</span> Van 2
+          </div>
+          <span id="valve2-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          <button onclick="setValve(2,'auto','btn-v2-auto')" id="btn-v2-auto" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
+          <button onclick="setValve(2,'on','btn-v2-on')" id="btn-v2-on" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
+          <button onclick="setValve(2,'off','btn-v2-off')" id="btn-v2-off" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
+        </div>
+      </div>
+    </div>
+
+
     <!-- Forecast Card -->
     <div
       class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
@@ -657,6 +735,31 @@
       const lab = document.getElementById(lampActiveId);
       if(lab) { lab.classList.remove(...idleClass); lab.classList.add(...activeClass); }
 
+
+      // --- Heater ---
+      const hr = d.heater_running;
+      const heaterEl = document.getElementById('heater-state');
+      if (heaterEl) {
+        heaterEl.textContent = hr ? 'BẬT' : 'TẮT';
+        heaterEl.className = `text-2xl font-bold ${hr ? 'text-red-400' : 'text-slate-500'}`;
+        updateBadge('heater-badge', hr ? 'ON' : 'OFF', hr ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+        document.getElementById('heater-mode').textContent = d.heater_manual ? 'TAY' : 'AUTO';
+      }
+
+      // --- Roof ---
+      const ra = d.roof_angle;
+      const roofEl = document.getElementById('roof-state');
+      if (roofEl) {
+        roofEl.textContent = ra == 180 ? 'MỞ' : 'ĐÓNG';
+        roofEl.className = `text-2xl font-bold ${ra == 180 ? 'text-cyan-400' : 'text-slate-500'}`;
+        updateBadge('roof-badge', ra == 180 ? 'MỞ' : 'ĐÓNG', ra == 180 ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+        document.getElementById('roof-mode').textContent = d.roof_manual ? 'TAY' : 'AUTO';
+      }
+
+      // --- Valves ---
+      updateBadge('valve1-badge', d.valve1_running ? 'ON' : 'OFF', d.valve1_running ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+      updateBadge('valve2-badge', d.valve2_running ? 'ON' : 'OFF', d.valve2_running ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+
       // Light threshold config
       if (document.activeElement.id !== 'cfg-light-th') {
         document.getElementById('cfg-light-th').value = d.light_thresh;
@@ -782,6 +885,20 @@
       }
       document.getElementById('lamp-mode').textContent = m === 'auto' ? 'AUTO' : 'TAY';
       await ctrl({ lamp: m }, btnId);
+    }
+
+
+    async function setHeater(m, btnId) {
+      await ctrl({ heater: m }, btnId);
+    }
+    async function setRoof(m, btnId) {
+      await ctrl({ roof: m }, btnId);
+    }
+    async function setValve(v, m, btnId) {
+      let params = {};
+      if (v === 1) params.valve1 = m;
+      else if (v === 2) params.valve2 = m;
+      await ctrl(params, btnId);
     }
 
     async function saveConfig(type) {

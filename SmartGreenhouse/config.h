@@ -1,13 +1,3 @@
-/*
- * ============================================================
- *  NHÀ MÀNG THÔNG MINH - CẤU HÌNH HỆ THỐNG
- *  Smart Greenhouse Configuration File
- *
- *  Chỉnh sửa file này để thay đổi thông số phần cứng,
- *  ngưỡng điều khiển và thông tin mạng.
- * ============================================================
- */
-
 #pragma once
 
 // ─────────────────────────────────────────────────────────────
@@ -18,149 +8,97 @@
 #define LORA_BAUD        115200
 
 // ─────────────────────────────────────────────────────────────
-//  I2C BUS (Chung cho SHT30 trong nhà, BH1750, LCD)
+//  UART HMI (UART1)
+// ─────────────────────────────────────────────────────────────
+#define HMI_TX_PIN       17
+#define HMI_RX_PIN       16
+#define HMI_BAUD         115200
+
+// ─────────────────────────────────────────────────────────────
+//  I2C BUS 0 (SHT30 Trong, BH1750)
 // ─────────────────────────────────────────────────────────────
 #define I2C_SDA   21
 #define I2C_SCL   22
 
 // ─────────────────────────────────────────────────────────────
-//  I2C BUS 2 (Riêng cho SHT30 ngoài trời)
+//  I2C BUS 1 (SHT30 Ngoài trời - dùng các chân LoRa cũ)
 // ─────────────────────────────────────────────────────────────
-#define I2C_SDA_EXT   16
-#define I2C_SCL_EXT   17
+#define I2C1_SDA  5
+#define I2C1_SCL  23
 
 // ─────────────────────────────────────────────────────────────
-//  LCD 20x4 I2C
+//  QUẠT DC - TB6612FNG (Kênh A)
 // ─────────────────────────────────────────────────────────────
-#define LCD_ADDR  0x27   // Địa chỉ I2C: thử 0x27 hoặc 0x3F
-#define LCD_COLS  20
-#define LCD_ROWS  4
+#define FAN_AIN1         25    
+#define FAN_AIN2         26    
+#define FAN_PWMA         27    
+#define FAN_PWM_FREQ     20000 
+#define FAN_PWM_RES      8     
 
 // ─────────────────────────────────────────────────────────────
-//  QUẠT DC - TB6612FNG
+//  BÓNG SƯỞI ẤM - TB6612FNG (Kênh B)
 // ─────────────────────────────────────────────────────────────
-#define FAN_AIN1         25    // Chiều quay A (HIGH = thuận)
-#define FAN_AIN2         26    // Chiều quay B (LOW  = thuận)
-#define FAN_PWMA         27    // PWM tốc độ quạt
-#define FAN_STBY         14    // Standby (HIGH = kích hoạt driver)
-// ESP32 Core v3.x: ledcAttach(pin, freq, res) — không cần khai báo channel
-#define FAN_PWM_FREQ     20000 // 20 kHz → không gây ồn cuộn cảm
-#define FAN_PWM_RES      8     // 8-bit: 0-255
+#define HEATER_BIN1      12
+#define HEATER_BIN2      13
+#define HEATER_PWMB      14
+
+// LƯU Ý: Chân STBY của TB6612FNG có thể nối chung vào 3.3V để tiết kiệm chân GPIO.
 
 // ─────────────────────────────────────────────────────────────
-//  BƠM 5V (Relay hoặc MOSFET)
+//  THIẾT BỊ CHẤP HÀNH KHÁC
 // ─────────────────────────────────────────────────────────────
-#define PUMP_PIN         32    // GPIO32 → relay/MOSFET
-// Nếu dùng relay Active-LOW: đổi PUMP_ON=LOW, PUMP_OFF=HIGH
-#define PUMP_ACTIVE_HIGH true  // true = HIGH bật bơm
+#define PUMP_PIN         32    // Relay
+#define PUMP_ACTIVE_HIGH true
+
+#define MIST_PIN         33    // MOSFET
+#define MIST_ACTIVE_HIGH true 
+
+#define LIGHT_PIN           4      // MOSFET
+#define LIGHT_ACTIVE_HIGH   true   
+#define DEFAULT_LIGHT_THRESH 1000.0 
+
+#define VALVE1_PIN       15    // Relay
+#define VALVE2_PIN       2     // Relay
+
+#define SERVO_PIN        0     // Servo mái che
 
 // ─────────────────────────────────────────────────────────────
-//  CAM BIEN DO AM DAT (Analog)
+//  CẢM BIẾN ĐỘ ẨM ĐẤT
 // ─────────────────────────────────────────────────────────────
 #define SOIL_PIN        34   // GPIO34 (ADC1_CH6, input-only)
-#define SOIL_SAMPLES    10   // So mau trung binh (loc nhieu ADC)
-
-// !! QUAN TRONG - Gia tri ADC phu thuoc cam bien cu the cua ban !!
-//
-// Loai DIEN TRO (que sat, 2 chan): dat KHO -> ADC CAO, dat UIOT -> ADC THAP
-//   Vi du: DRY = 3200, WET = 1200  (ESP32 12-bit ADC: 0-4095)
-//
-// Loai DIEN DUNG (capacitive, mau den/xanh la): dat KHO -> ADC THAP, dat UIOT -> ADC CAO
-//   Vi du: DRY = 1500, WET = 3000  (dao nguoc so voi loai dien tro)
-//
-// De tim gia tri chinh xac: bat SOIL_CALIBRATION_MODE = 1
-// Xem ADC raw trong Serial Monitor (115200 baud)
-//
-#define SOIL_DRY_VALUE  1500  // ADC raw khi dat KHO - do thuc te voi cam bien nay!
-#define SOIL_WET_VALUE  3000  // ADC raw khi dat UIOT - do thuc te!
-// !! Neu cam bien DIEN TRO (que sat): DRY=3200, WET=1200 (ADC cao = kho)
-// !! Neu cam bien DIEN DUNG (capacitive, mau den): DRY < WET (ADC thap = kho)
-// ADC=784 do duoc o tren khong khi -> day la cam bien dien dung
-// -> DRY ~ 784 (trong khong khi), WET ~ 1500-1800 (trong nuoc)
-
-// ─────────────────────────────────────────────────────────────
-//  DEBUG / CALIBRATION
-// ─────────────────────────────────────────────────────────────
-// =1: Serial in ADC raw cam bien dat de calibrate. =0: chay binh thuong
-#define SOIL_CALIBRATION_MODE  0
-
-// =1: Quet I2C khi boot, in dia chi tat ca thiet bi I2C vao Serial
-// Dung khi cam bien khong nhan, hoac khong biet dia chi LCD/SHT30
-#define I2C_SCAN_ON_BOOT       0
-
-// ─────────────────────────────────────────────────────────────
-//  LED STATUS
-// ─────────────────────────────────────────────────────────────
-#define LED_PIN          2
-
-// ─────────────────────────────────────────────────────────────
-//  PHUN SƯƠNG (MOSFET)
-//  - Bật cùng lúc với quạt (khi nhiệt độ > setpoint)
-//  - Hỗ trợ bật/tắt thủ công từ Web
-// ─────────────────────────────────────────────────────────────
-#define MIST_PIN         33   // GPIO33 → MOSFET phun sương
-#define MIST_ACTIVE_HIGH true // true = HIGH bật phun sương
-
-// ─────────────────────────────────────────────────────────────
-//  ĐÈN CHIẾU SÁNG (MOSFET)
-//  - Bật khi ánh sáng < ngưỡng (trời tối)
-//  - Hỗ trợ bật/tắt thủ công từ Web
-// ─────────────────────────────────────────────────────────────
-#define LIGHT_PIN           4      // GPIO4 → MOSFET đèn
-#define LIGHT_ACTIVE_HIGH   true   // true = HIGH bật đèn
-#define DEFAULT_LIGHT_THRESH 1000.0 // Bật đèn khi < 1000 lux
-
-// ─────────────────────────────────────────────────────────────
-//  NTP
-// ─────────────────────────────────────────────────────────────
-#define NTP_SERVER       "pool.ntp.org"
-#define NTP_SERVER2      "time.google.com"    // Server du phong
-#define NTP_SERVER3      "vn.pool.ntp.org"    // Server VN
-#define GMT_OFFSET       25200  // GMT+7 (giay)
-#define DAYLIGHT_OFFSET  0
-
-// ─────────────────────────────────────────────────────────────
-//  LƯU TRỮ CSV (LittleFS)
-// ─────────────────────────────────────────────────────────────
-#define CSV_FILE        "/data.csv"
-#define MAX_FILE_SIZE   1400000  // ~1.4 MB
+#define SOIL_SAMPLES    10   // Số mẫu trung bình (lọc nhiễu ADC)
+#define SOIL_DRY_VALUE  1500 // ADC raw khi đất KHÔ
+#define SOIL_WET_VALUE  3000 // ADC raw khi đất ƯỚT
+#define SOIL_CALIBRATION_MODE 0 // =1: Serial in ADC raw để calibrate
 
 // ─────────────────────────────────────────────────────────────
 //  THỜI GIAN (milliseconds)
 // ─────────────────────────────────────────────────────────────
-#define SENSOR_INTERVAL     2000   // Đọc cảm biến & cập nhật cơ cấu
-#define CSV_INTERVAL        30000  // Lưu CSV + gửi MQTT
-#define LCD_INTERVAL        1000   // Cập nhật màn hình LCD
-#define MQTT_RECONNECT      5000   // Thử kết nối lại MQTT
-#define WIFI_RECONNECT      15000  // Thử kết nối lại WiFi
+#define SENSOR_INTERVAL     2000   
+#define HMI_INTERVAL        1000   
+#define LORA_INTERVAL       10000
 #define FORECAST_INTERVAL   300000 // Dự báo mỗi 5 phút (= 1 horizon step)
 
 // ─────────────────────────────────────────────────────────────
 //  PID - ĐIỀU KHIỂN TỐC ĐỘ QUẠT
 // ─────────────────────────────────────────────────────────────
-#define PID_KP           8.0    // Hệ số tỉ lệ
-#define PID_KI           0.5    // Hệ số tích phân
-#define PID_KD           2.0    // Hệ số vi phân
-#define DEFAULT_FAN_SETPOINT 28.0 // Nhiệt độ mục tiêu mặc định (°C)
-#define FAN_DEADBAND     0.5    // Dải chết ±0.5°C (không kích PID)
-#define FAN_PWM_MIN      50     // PWM tối thiểu khi quạt khởi động
-#define FAN_PWM_MAX      255    // PWM tối đa
+#define PID_KP           8.0    
+#define PID_KI           0.5    
+#define PID_KD           2.0    
+#define DEFAULT_FAN_SETPOINT 28.0 
+#define FAN_DEADBAND     0.5    
+#define FAN_PWM_MIN      50     
+#define FAN_PWM_MAX      255    
 
-// Nhiệt độ bắt đầu bật quạt (dưới ngưỡng này → OFF dù mode AUTO)
-// Thay vì macro tĩnh, giờ tính toán trong code: start_temp = g_fanSetpoint - FAN_DEADBAND
-
-// Chế độ quạt
 #define FAN_MODE_OFF     0
 #define FAN_MODE_AUTO    1
 #define FAN_MODE_MANUAL  2
 
 // ─────────────────────────────────────────────────────────────
-//  BƠM - NGƯỠNG ĐỘ ẨM ĐẤT
+//  BƠM - NGƯỠNG ĐỘ ẨM
 // ─────────────────────────────────────────────────────────────
-#define DEFAULT_PUMP_ON_THRESH   40.0   // Bật bơm mặc định: < 40%
-#define DEFAULT_PUMP_OFF_THRESH  65.0   // Tắt bơm mặc định: > 65%
-#define PUMP_MAX_RUNTIME         30000  // Tối đa 30s liên tục (bảo vệ bơm)
-#define PUMP_COOLDOWN            120000 // Chờ 2 phút trước khi bật lại
+#define DEFAULT_PUMP_ON_THRESH   40.0   
+#define DEFAULT_PUMP_OFF_THRESH  65.0   
 
 // ─────────────────────────────────────────────────────────────
 //  SENSOR VALIDATION
@@ -171,3 +109,4 @@
 #define HUMID_MAX        100.0
 #define LUX_MAX          65535.0
 #define MAX_SENSOR_ERRORS  5
+
