@@ -1,12 +1,12 @@
-/*
- * Gateway.ino
- * Gateway trung tâm cho Nhà màng thông minh
- * - Giao tiếp với Node qua LoRa E32
- * - Kết nối WiFi, đồng bộ thời gian NTP
- * - Chạy WebServer cung cấp API cho Cloudflare Dashboard
- * - Lưu CSV vào LittleFS
- * - Push dữ liệu lên MQTT
- */
+// ═════════════════════════════════════════════════════════════
+//  HỆ THỐNG NHÀ MÀNG THÔNG MINH - NODE 3: GATEWAY NODE (ESP32)
+//  Trạm trung tâm thu nhận LoRa, Web Server REST API, NTP & Data Logger
+//  - Giao tiếp không dây với Master Node qua module LoRa E32-433T20D
+//  - Kết nối WiFi gia đình, đồng bộ thời gian thực chuẩn NTP (GMT+7)
+//  - Cung cấp REST API cục bộ (Cổng 80) phục vụ Cloudflare Dashboard
+//  - Quản lý nhật ký cảm biến dạng CSV vào bộ nhớ Flash LittleFS
+//  - Hỗ trợ đẩy dữ liệu lên máy chủ MQTT Broker trung tâm (tùy chọn)
+// ═════════════════════════════════════════════════════════════
 
 #include <Wire.h>
 #include <WiFi.h>
@@ -29,17 +29,52 @@ float g_humidity     = 0;
 float g_tempExt      = 0;
 float g_humidExt     = 0;
 float g_lightLux     = 0;
-float g_soilMoisture = 0;
+float g_soilMoisture  = 0;
+float g_soilMoisture2 = 0;
+
+// Hệ thống tưới thông minh (Bơm & 2 Van)
+bool          g_pumpRunning       = false;
+bool          g_pumpEnabled       = true;
+bool          g_pumpEmergencyStop = false;
+unsigned long g_pumpTime          = 0;
+bool          g_pumpSeq           = true;
+
+// Van 1
+bool          g_v1_run   = false;
+int           g_v1_mode  = 1;
+float         g_v1_soil  = 0;
+float         g_v1_dry   = 40.0;
+float         g_v1_wet   = 65.0;
+int           g_v1_to    = 300;
+int           g_v1_rest  = 60;
+unsigned long g_v1_time  = 0;
+bool          g_v1_err   = false;
+String        g_v1_name  = "Van 1 (Luống 1)";
+
+// Van 2
+bool          g_v2_run   = false;
+int           g_v2_mode  = 1;
+float         g_v2_soil  = 0;
+float         g_v2_dry   = 45.0;
+float         g_v2_wet   = 70.0;
+int           g_v2_to    = 300;
+int           g_v2_rest  = 60;
+unsigned long g_v2_time  = 0;
+bool          g_v2_err   = false;
+String        g_v2_name  = "Van 2 (Luống 2)";
+
+// Biến tương thích ngược
+bool  g_pumpManual   = false;
+float g_pumpOnThresh = 40.0;
+float g_pumpOffThresh= 65.0;
+bool  g_valve1Running = false;
+bool  g_valve2Running = false;
+bool  g_valveManual   = false;
 
 int   g_fanMode      = 1;
 int   g_fanSpeed     = 0;
 int   g_fanPWM       = 0;
 float g_fanSetpoint  = 30.0;
-
-bool  g_pumpRunning  = false;
-bool  g_pumpManual   = false;
-float g_pumpOnThresh = 40.0;
-float g_pumpOffThresh= 80.0;
 
 bool  g_mistRunning  = false;
 bool  g_mistManual   = false;
@@ -51,10 +86,6 @@ float g_lightThresh  = 1000.0;
 bool  g_heaterRunning = false;
 bool  g_heaterManual  = false;
 int   g_heaterPWM     = 0;
-
-bool  g_valve1Running = false;
-bool  g_valve2Running = false;
-bool  g_valveManual   = false;
 
 int   g_roofAngle     = 0;
 bool  g_roofManual    = false;

@@ -53,9 +53,9 @@
 
       <div class="flex items-center gap-3 bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/50">
         <div class="text-[11px] text-slate-500 font-medium uppercase tracking-wider">Địa chỉ IP</div>
-        <input type="text" id="esp-ip" value="http://192.168.1.110"
-          class="bg-transparent border-none text-sm text-slate-300 font-mono outline-none w-[140px] focus:text-white transition-colors"
-          onchange="resetConnection()">
+        <input type="text" id="esp-ip" value="http://192.168.1.218"
+          class="bg-transparent border-none text-sm text-slate-300 font-mono outline-none w-[200px] focus:text-white transition-colors"
+          onchange="resetConnection()" onkeydown="if(event.key==='Enter') resetConnection()">
         <button onclick="resetConnection()" class="text-slate-400 hover:text-emerald-400 transition-colors"
           title="Làm mới">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,25 +138,39 @@
           id="st-lux">--</div>
       </div>
 
-      <!-- Soil -->
+      <!-- Soil (Dual Sensors) -->
       <div
         class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 md:p-5 relative overflow-hidden group hover:border-slate-600/80 transition-colors shadow-lg">
         <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-lime-400 to-emerald-500"></div>
-        <div class="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-3">
-          <span class="text-lg">🌱</span> Ẩm đất
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+            <span class="text-lg">🌱</span> Ẩm đất 2 vùng
+          </div>
+          <span id="st-soil"
+            class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">2
+            CẢM BIẾN</span>
         </div>
-        <div class="text-3xl md:text-4xl font-bold flex items-baseline gap-1 text-white">
-          <span id="val-soil">--</span><span class="text-sm text-slate-500 font-medium">%</span>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/40">
+            <div class="text-[10px] text-slate-400 font-medium truncate" id="soil-top-name-1">Luống 1</div>
+            <div class="text-xl md:text-2xl font-bold text-white flex items-baseline gap-0.5 mt-0.5 font-mono">
+              <span id="val-soil-1">--</span><span class="text-xs text-slate-500 font-medium">%</span>
+            </div>
+            <div id="st-soil-1" class="text-[10px] font-semibold text-emerald-400 mt-0.5">Đủ ẩm</div>
+          </div>
+          <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/40">
+            <div class="text-[10px] text-slate-400 font-medium truncate" id="soil-top-name-2">Luống 2</div>
+            <div class="text-xl md:text-2xl font-bold text-white flex items-baseline gap-0.5 mt-0.5 font-mono">
+              <span id="val-soil-2">--</span><span class="text-xs text-slate-500 font-medium">%</span>
+            </div>
+            <div id="st-soil-2" class="text-[10px] font-semibold text-emerald-400 mt-0.5">Đủ ẩm</div>
+          </div>
         </div>
-        <div
-          class="mt-3 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/50 text-slate-300 border border-slate-600/50"
-          id="st-soil">--</div>
       </div>
     </div>
 
-    <!-- Controls Grid -->
+    <!-- Controls Grid: Điều hòa nhiệt độ (Quạt + Sưởi) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
-
       <!-- Fan Card -->
       <div
         class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between shadow-lg">
@@ -195,16 +209,26 @@
               class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TAY</button>
           </div>
 
-          <!-- Manual Slider -->
-          <div id="fan-slider-wrap" class="hidden mb-4 p-4 bg-slate-900/50 rounded-xl border border-slate-700/30">
-            <div class="flex justify-between text-xs text-slate-400 mb-3 font-medium">
-              <span>Chỉnh tốc độ</span>
-              <span class="font-mono text-indigo-400"><span id="fan-slider-val">128</span> / 255</span>
+          <!-- 4 mức công suất quạt tay (40%, 60%, 80%, 100%) -->
+          <div id="fan-levels-wrap" class="hidden mb-4 p-3 bg-slate-900/50 rounded-xl border border-slate-700/30">
+            <div class="text-[11px] text-slate-400 mb-2 font-medium flex justify-between">
+              <span>4 mức công suất quạt tay:</span>
+              <span id="fan-level-hint" class="text-indigo-400 font-mono">Tự động / Tắt</span>
             </div>
-            <input type="range" min="0" max="255" value="128" id="fan-slider"
-              class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-              oninput="document.getElementById('fan-slider-val').innerText=this.value"
-              onchange="setFanSpeed(this.value)">
+            <div class="grid grid-cols-4 gap-2">
+              <button onclick="setFanLevel(40, 102, 'btn-fan-lvl-40')" id="btn-fan-lvl-40"
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
+                1</button>
+              <button onclick="setFanLevel(60, 153, 'btn-fan-lvl-60')" id="btn-fan-lvl-60"
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
+                2</button>
+              <button onclick="setFanLevel(80, 204, 'btn-fan-lvl-80')" id="btn-fan-lvl-80"
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
+                3</button>
+              <button onclick="setFanLevel(100, 255, 'btn-fan-lvl-100')" id="btn-fan-lvl-100"
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
+                4</button>
+            </div>
           </div>
         </div>
 
@@ -222,68 +246,178 @@
           </div>
         </div>
       </div>
-
-      <!-- Pump Card -->
+      <!-- Heater Card -->
       <div
-        class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between shadow-lg">
-        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-cyan-500"></div>
-
-        <div class="flex justify-between items-start mb-4">
+        class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg flex flex-col justify-between">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-orange-500"></div>
+        <div class="flex justify-between items-center mb-4">
           <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
-            <span class="text-lg">🚿</span> Bơm
+            <span class="text-lg">🔥</span> Đèn Sưởi
           </div>
-          <div id="pump-badge"
-            class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-700/50 text-slate-400 border border-slate-600/50">
-            --</div>
+          <span id="heater-badge"
+            class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
         </div>
 
         <div>
-          <div class="flex justify-between items-end mb-3">
-            <div class="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Trạng thái</div>
-            <div class="text-2xl font-bold text-slate-500" id="pump-state">--</div>
-          </div>
-
-          <div
-            class="bg-slate-900/50 p-3 rounded-xl border border-slate-700/30 mb-5 text-[11px] md:text-xs text-slate-400">
-            <div class="flex justify-between mb-1">
-              <span>Hoạt động: <b id="pump-mode" class="text-slate-300">--</b></span>
-              <span>Runtime: <b id="pump-time" class="text-slate-300">--</b></span>
-            </div>
-            <div class="flex justify-between">
-              <span>Bật khi: <b class="text-cyan-400">&lt; <span id="p-on-v">--</span>%</b></span>
-              <span>Tắt khi: <b class="text-blue-400">&gt; <span id="p-off-v">--</span>%</b></span>
+          <div class="flex justify-between items-end mb-2">
+            <div class="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Thanh công suất sưởi</div>
+            <div class="text-2xl font-bold text-white flex items-baseline gap-1">
+              <span id="heater-power">0</span><span class="text-xs text-slate-500">%</span>
             </div>
           </div>
+          <!-- Thanh tiến trình công suất sưởi -->
+          <div class="w-full bg-slate-900/80 rounded-full h-2.5 mb-1 overflow-hidden shadow-inner">
+            <div id="heater-bar"
+              class="bg-gradient-to-r from-red-500 to-orange-500 h-full rounded-full transition-all duration-500"
+              style="width: 0%"></div>
+          </div>
+          <div class="text-[10px] text-slate-500 text-right mb-3 font-mono">PWM: <span id="heater-pwm">0</span>/255 |
+            Trạng thái: <span id="heater-state" class="font-bold text-slate-400">TẮT</span> (<span
+              id="heater-mode">AUTO</span>)</div>
 
-          <!-- Mode Buttons -->
-          <div class="grid grid-cols-3 gap-2 mb-4">
-            <button onclick="setPump('auto','btn-pump-auto')" id="btn-pump-auto"
+          <!-- Chế độ sưởi: AUTO & TẮT -->
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <button onclick="setHeater('auto','btn-heater-auto')" id="btn-heater-auto"
               class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
-            <button onclick="setPump('on','btn-pump-on')" id="btn-pump-on"
-              class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
-            <button onclick="setPump('off','btn-pump-off')" id="btn-pump-off"
+            <button onclick="setHeater('off','btn-heater-off')" id="btn-heater-off"
               class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
+          </div>
+
+          <!-- 4 mức công suất sưởi tay (40%, 60%, 80%, 100%) -->
+          <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-700/30 mb-1">
+            <div class="text-[11px] text-slate-400 mb-2 font-medium flex justify-between">
+              <span>4 mức công suất sưởi tay:</span>
+              <span id="heater-level-hint" class="text-orange-400 font-mono">Tự động / Tắt</span>
+            </div>
+            <div class="grid grid-cols-4 gap-2">
+              <button onclick="setHeaterLevel(40, 102, 'btn-heater-lvl-40')" id="btn-heater-lvl-40"
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
+                1</button>
+              <button onclick="setHeaterLevel(60, 153, 'btn-heater-lvl-60')" id="btn-heater-lvl-60"
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
+                2</button>
+              <button onclick="setHeaterLevel(80, 204, 'btn-heater-lvl-80')" id="btn-heater-lvl-80"
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
+                3</button>
+              <button onclick="setHeaterLevel(100, 255, 'btn-heater-lvl-100')" id="btn-heater-lvl-100"
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
+                4</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════ -->
+    <!-- BƠM & HỆ THỐNG VAN TƯỚI THÔNG MINH (CARD LỒNG TOÀN CHIỀU RỘNG) -->
+    <!-- ════════════════════════════════════════════════════════════════════ -->
+    <div
+      class="bg-slate-800/60 backdrop-blur-md border border-slate-700/60 rounded-3xl p-5 md:p-7 relative overflow-hidden shadow-2xl mb-6">
+      <!-- Glow top border with cyan to emerald gradient -->
+      <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-400"></div>
+
+      <!-- ─── PHẦN ĐẦU CARD: KHU VỰC BƠM TƯỚI NƯỚC ─── -->
+      <div class="border-b border-slate-700/60 pb-6 mb-6">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+          <!-- Title & Badges -->
+          <div class="flex items-center gap-3">
+            <div
+              class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-2xl shadow-inner">
+              🚿
+            </div>
+            <div>
+              <div class="flex items-center gap-2.5">
+                <h3 class="text-lg md:text-xl font-bold text-white tracking-wide">MÁY BƠM TƯỚI NƯỚC</h3>
+                <span id="pump-main-badge"
+                  class="px-3 py-1 rounded-full text-xs font-bold border bg-slate-700/50 text-slate-400 border-slate-600/50 uppercase tracking-wider transition-all">
+                  DỪNG
+                </span>
+                <span id="pump-lock-badge"
+                  class="hidden px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-500/10 text-red-400 border border-red-500/30">
+                  🛑 DỪNG KHẨN CẤP
+                </span>
+              </div>
+              <p class="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+                <span>Trạng thái:</span>
+                <span id="pump-active-valves-text" class="font-semibold text-slate-300">Không có van nào mở</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Controls: Tưới tuần tự + Dừng khẩn cấp -->
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- Toggle Tưới tuần tự (Sequential) -->
+            <button onclick="toggleSequentialMode()" id="btn-seq-mode"
+              title="Ưu tiên tưới lần lượt vùng khô nhất để duy trì áp lực nước mạnh nhất"
+              class="flex items-center gap-2 bg-slate-900/60 border border-slate-700/60 hover:border-slate-600 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 transition-all shadow-sm">
+              <span class="text-cyan-400">⚡</span>
+              <span id="seq-mode-label">Tưới tuần tự: BẬT</span>
+            </button>
+
+            <!-- Nút Tắt khẩn cấp -->
+            <button onclick="toggleEmergencyStop()" id="btn-pump-emg"
+              class="flex items-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-400 hover:text-red-300 border border-red-500/40 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg shadow-red-500/10 active:scale-95">
+              <span>🛑</span>
+              <span id="emg-btn-text">TẮT KHẨN CẤP</span>
+            </button>
           </div>
         </div>
 
-        <!-- Settings -->
-        <div class="mt-2 pt-4 border-t border-slate-700/50">
-          <div class="flex gap-2 items-end">
-            <div class="flex-1">
-              <label class="block text-[10px] uppercase tracking-wider font-medium text-slate-500 mb-1.5">Khô (<
-                  %)</label>
-                  <input type="number" id="cfg-p-on"
-                    class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-sm text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-inner text-center">
-            </div>
-            <div class="flex-1">
-              <label class="block text-[10px] uppercase tracking-wider font-medium text-slate-500 mb-1.5">Ẩm (>
-                %)</label>
-              <input type="number" id="cfg-p-off"
-                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-sm text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-inner text-center">
-            </div>
-            <button onclick="saveConfig('pump')"
-              class="bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 hover:text-blue-300 px-3 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm">Lưu</button>
+        <!-- Pump Metrics Grid -->
+        <div
+          class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-900/50 rounded-2xl p-4 border border-slate-700/40 text-xs">
+          <div>
+            <span class="text-slate-500 block uppercase tracking-wider text-[10px] font-semibold mb-1">Thời gian bơm
+              chạy</span>
+            <span id="pump-runtime-display" class="text-base font-bold text-white font-mono">00:00</span>
           </div>
+          <div>
+            <span class="text-slate-500 block uppercase tracking-wider text-[10px] font-semibold mb-1">Số van đang
+              mở</span>
+            <span id="pump-open-count" class="text-base font-bold text-cyan-400 font-mono">0 / 2 van</span>
+          </div>
+          <div>
+            <span class="text-slate-500 block uppercase tracking-wider text-[10px] font-semibold mb-1">Trình tự an
+              toàn</span>
+            <span class="text-slate-300 font-medium">Van ➔ Bơm (Trễ 1.5s)</span>
+          </div>
+          <div>
+            <span class="text-slate-500 block uppercase tracking-wider text-[10px] font-semibold mb-1">Bảo vệ nguồn
+              nước</span>
+            <span id="pump-water-status" class="text-emerald-400 font-semibold flex items-center gap-1">
+              <span>✓</span> Bình thường (Đủ nước)
+            </span>
+          </div>
+        </div>
+
+        <!-- Banner cảnh báo Dừng khẩn cấp -->
+        <div id="pump-lock-alert"
+          class="hidden mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300 text-xs flex items-center gap-2">
+          <span>🛑</span>
+          <span><b>Hệ thống đang TẮT KHẨN CẤP</b>. Toàn bộ bơm và van đã được ngắt để bảo vệ. Nhấn nút <b>"KHÔI PHỤC
+              BƠM"</b> để mở lại hệ thống.</span>
+        </div>
+      </div>
+
+      <!-- ─── PHẦN THÂN CARD: DANH SÁCH CÁC CARD VAN CON ─── -->
+      <div>
+        <div class="flex justify-between items-center mb-4">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Các Van Tưới Khu Vực (Lồng trong
+              Bơm)</span>
+            <span id="valve-count-badge"
+              class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-700/50 text-slate-300 border border-slate-600/50">2
+              van</span>
+          </div>
+          <button onclick="addNewValve()"
+            class="text-xs font-semibold text-cyan-400 hover:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm">
+            <span>+</span> Thêm van mới
+          </button>
+        </div>
+
+        <!-- Container chứa các Card Van con (Render động từ JS) -->
+        <div id="valves-container" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Dynamic Valve Cards injected by JS -->
         </div>
       </div>
     </div>
@@ -291,156 +425,147 @@
     <!-- Mist + Light Grid (cùng 1 hàng) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
 
-    <!-- Mist Card -->
-    <div
-      class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
-      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-400 to-cyan-500"></div>
-      <div class="flex justify-between items-center mb-5">
-        <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
-          <span class="text-lg">💨</span> Phun Sương
-        </div>
-        <span id="mist-badge"
-          class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
-      </div>
-
-      <div class="text-center mb-4">
-        <div id="mist-state" class="text-2xl font-bold text-slate-500">TẮT</div>
-        <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="mist-mode" class="font-semibold">AUTO</span></div>
-      </div>
-
-      <!-- Mode Buttons -->
-      <div class="grid grid-cols-3 gap-2 mb-2">
-        <button onclick="setMist('auto','btn-mist-auto')" id="btn-mist-auto"
-          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
-        <button onclick="setMist('on','btn-mist-on')" id="btn-mist-on"
-          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
-        <button onclick="setMist('off','btn-mist-off')" id="btn-mist-off"
-          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
-      </div>
-      <p class="text-[10px] text-slate-600 text-center">Tự động bật cùng quạt khi nhiệt độ vượt ngưỡng</p>
-    </div>
-
-    <!-- Light Card -->
-    <div
-      class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
-      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-amber-500"></div>
-      <div class="flex justify-between items-center mb-5">
-        <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
-          <span class="text-lg">💡</span> Đèn Chiếu Sáng
-        </div>
-        <span id="lamp-badge"
-          class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
-      </div>
-
-      <div class="text-center mb-4">
-        <div id="lamp-state" class="text-2xl font-bold text-slate-500">TẮT</div>
-        <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="lamp-mode" class="font-semibold">AUTO</span></div>
-      </div>
-
-      <!-- Mode Buttons -->
-      <div class="grid grid-cols-3 gap-2 mb-4">
-        <button onclick="setLamp('auto','btn-lamp-auto')" id="btn-lamp-auto"
-          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
-        <button onclick="setLamp('on','btn-lamp-on')" id="btn-lamp-on"
-          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
-        <button onclick="setLamp('off','btn-lamp-off')" id="btn-lamp-off"
-          class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
-      </div>
-
-      <!-- Ngưỡng đèn -->
-      <div class="pt-3 border-t border-slate-700/50">
-        <div class="flex gap-2 items-end">
-          <div class="flex-1">
-            <label class="block text-[10px] uppercase tracking-wider font-medium text-slate-500 mb-1.5">Bật khi < (lux)</label>
-            <input type="number" id="cfg-light-th"
-              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-sm text-white outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 transition-all shadow-inner text-center">
+      <!-- Mist Card -->
+      <div
+        class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-400 to-cyan-500"></div>
+        <div class="flex justify-between items-center mb-5">
+          <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
+            <span class="text-lg">💨</span> Phun Sương
           </div>
-          <button onclick="saveConfig('light')"
-            class="bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 hover:text-yellow-300 px-3 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm">Lưu</button>
+          <span id="mist-badge"
+            class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
+        </div>
+
+        <div class="text-center mb-4">
+          <div id="mist-state" class="text-2xl font-bold text-slate-500">TẮT</div>
+          <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="mist-mode" class="font-semibold">AUTO</span>
+          </div>
+        </div>
+
+        <!-- Mode Buttons -->
+        <div class="grid grid-cols-3 gap-2 mb-2">
+          <button onclick="setMist('auto','btn-mist-auto')" id="btn-mist-auto"
+            class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
+          <button onclick="setMist('on','btn-mist-on')" id="btn-mist-on"
+            class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
+          <button onclick="setMist('off','btn-mist-off')" id="btn-mist-off"
+            class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
+        </div>
+        <p class="text-[10px] text-slate-600 text-center">Tự động bật cùng quạt khi nhiệt độ vượt ngưỡng</p>
+      </div>
+
+      <!-- Light Card -->
+      <div
+        class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-amber-500"></div>
+        <div class="flex justify-between items-center mb-5">
+          <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
+            <span class="text-lg">💡</span> Đèn Chiếu Sáng
+          </div>
+          <span id="lamp-badge"
+            class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
+        </div>
+
+        <div class="text-center mb-4">
+          <div id="lamp-state" class="text-2xl font-bold text-slate-500">TẮT</div>
+          <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="lamp-mode" class="font-semibold">AUTO</span>
+          </div>
+        </div>
+
+        <!-- Mode Buttons -->
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          <button onclick="setLamp('auto','btn-lamp-auto')" id="btn-lamp-auto"
+            class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
+          <button onclick="setLamp('on','btn-lamp-on')" id="btn-lamp-on"
+            class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
+          <button onclick="setLamp('off','btn-lamp-off')" id="btn-lamp-off"
+            class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
+        </div>
+
+        <!-- Ngưỡng đèn -->
+        <div class="pt-3 border-t border-slate-700/50">
+          <div class="flex gap-2 items-end">
+            <div class="flex-1">
+              <label class="block text-[10px] uppercase tracking-wider font-medium text-slate-500 mb-1.5">Bật khi <
+                  (lux)</label>
+                  <input type="number" id="cfg-light-th"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-sm text-white outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 transition-all shadow-inner text-center">
+            </div>
+            <button onclick="saveConfig('light')"
+              class="bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 hover:text-yellow-300 px-3 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm">Lưu</button>
+          </div>
         </div>
       </div>
-    </div>
 
     </div><!-- end Mist + Light Grid -->
 
     <!-- Heater + Roof Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
-      <!-- Heater Card -->
-      <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
-        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-orange-500"></div>
-        <div class="flex justify-between items-center mb-5">
-          <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
-            <span class="text-lg">🔥</span> Sưởi Ấm
-          </div>
-          <span id="heater-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
-        </div>
-        <div class="text-center mb-4">
-          <div id="heater-state" class="text-2xl font-bold text-slate-500">TẮT</div>
-          <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="heater-mode" class="font-semibold">AUTO</span></div>
-        </div>
-        <div class="grid grid-cols-3 gap-2 mb-4">
-          <button onclick="setHeater('auto','btn-heater-auto')" id="btn-heater-auto" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
-          <button onclick="setHeater('on','btn-heater-on')" id="btn-heater-on" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
-          <button onclick="setHeater('off','btn-heater-off')" id="btn-heater-off" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
-        </div>
-      </div>
 
+    <!-- Roof + Forecast Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
       <!-- Roof Card -->
-      <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
+      <div
+        class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg flex flex-col justify-between">
         <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 to-blue-500"></div>
-        <div class="flex justify-between items-center mb-5">
+        <div class="flex justify-between items-center mb-4">
           <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
-            <span class="text-lg">🏠</span> Mái Che
+            <span class="text-lg">🪟</span> Rèm Cửa (Mái Che)
           </div>
-          <span id="roof-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">ĐÓNG</span>
+          <span id="roof-badge"
+            class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">ĐÓNG</span>
         </div>
-        <div class="text-center mb-4">
-          <div id="roof-state" class="text-2xl font-bold text-slate-500">ĐÓNG</div>
-          <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="roof-mode" class="font-semibold">AUTO</span></div>
-        </div>
-        <div class="grid grid-cols-3 gap-2 mb-4">
-          <button onclick="setRoof('auto','btn-roof-auto')" id="btn-roof-auto" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
-          <button onclick="setRoof('open','btn-roof-open')" id="btn-roof-open" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">MỞ</button>
-          <button onclick="setRoof('close','btn-roof-close')" id="btn-roof-close" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">ĐÓNG</button>
+
+        <div>
+          <div class="flex justify-between items-end mb-2">
+            <div class="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Độ mở rèm cửa</div>
+            <div class="text-2xl font-bold text-white flex items-baseline gap-1">
+              <span id="roof-percent">0</span><span class="text-xs text-slate-500">%</span>
+            </div>
+          </div>
+          <!-- Thanh tiến trình độ mở rèm cửa -->
+          <div class="w-full bg-slate-900/80 rounded-full h-2.5 mb-1 overflow-hidden shadow-inner">
+            <div id="roof-bar"
+              class="bg-gradient-to-r from-cyan-400 to-blue-500 h-full rounded-full transition-all duration-500"
+              style="width: 0%"></div>
+          </div>
+          <div class="text-[10px] text-slate-500 text-right mb-3 font-mono">Góc mở: <span
+              id="roof-angle-val">0</span>°/180° | Trạng thái: <span id="roof-state"
+              class="font-bold text-slate-400">ĐÓNG</span> (<span id="roof-mode">AUTO</span>)</div>
+
+          <!-- Thanh kéo điều chỉnh góc rèm bằng tay (Range Slider) -->
+          <div class="mb-3 p-3.5 bg-slate-900/50 rounded-xl border border-slate-700/30">
+            <div class="flex justify-between text-xs text-slate-400 mb-2 font-medium">
+              <span>Thanh kéo điều chỉnh góc:</span>
+              <span class="font-mono text-cyan-400 font-semibold"><span id="roof-slider-val">0</span>° (<span
+                  id="roof-slider-percent">0</span>%)</span>
+            </div>
+            <input type="range" min="0" max="180" step="5" value="0" id="roof-slider"
+              class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+              oninput="onRoofSliderInput(this.value)" onchange="onRoofSliderChange(this.value)">
+            <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+              <span>0° (Đóng)</span>
+              <span>90°</span>
+              <span>180° (Mở)</span>
+            </div>
+          </div>
+
+          <!-- Mode Buttons -->
+          <div class="grid grid-cols-3 gap-2 mb-1">
+            <button onclick="setRoof('auto','btn-roof-auto')" id="btn-roof-auto"
+              class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
+            <button onclick="setRoof('close','btn-roof-close')" id="btn-roof-close"
+              class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">ĐÓNG
+              (0°)</button>
+            <button onclick="setRoof('open','btn-roof-open')" id="btn-roof-open"
+              class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">MỞ
+              (180°)</button>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Valves Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
-      <!-- Valve 1 -->
-      <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
-        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
-        <div class="flex justify-between items-center mb-5">
-          <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
-            <span class="text-lg">🚰</span> Van 1
-          </div>
-          <span id="valve1-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
-        </div>
-        <div class="grid grid-cols-3 gap-2 mb-4">
-          <button onclick="setValve(1,'auto','btn-v1-auto')" id="btn-v1-auto" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
-          <button onclick="setValve(1,'on','btn-v1-on')" id="btn-v1-on" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
-          <button onclick="setValve(1,'off','btn-v1-off')" id="btn-v1-off" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
-        </div>
-      </div>
-      <!-- Valve 2 -->
-      <div class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
-        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-400 to-purple-500"></div>
-        <div class="flex justify-between items-center mb-5">
-          <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
-            <span class="text-lg">🚰</span> Van 2
-          </div>
-          <span id="valve2-badge" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
-        </div>
-        <div class="grid grid-cols-3 gap-2 mb-4">
-          <button onclick="setValve(2,'auto','btn-v2-auto')" id="btn-v2-auto" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
-          <button onclick="setValve(2,'on','btn-v2-on')" id="btn-v2-on" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">BẬT</button>
-          <button onclick="setValve(2,'off','btn-v2-off')" id="btn-v2-off" class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
-        </div>
-      </div>
-    </div>
-
-
     <!-- Forecast Card -->
     <div
       class="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 relative overflow-hidden shadow-lg">
@@ -539,60 +664,95 @@
 
   <!-- Logic -->
   <script>
-    // Khôi phục IP đã lưu từ localStorage (nếu có)
-    const savedIp = localStorage.getItem('greenhouse_esp_ip');
+    // Khôi phục IP đã lưu từ localStorage
+    let savedIp = localStorage.getItem('greenhouse_esp_ip');
     if (savedIp) {
-      document.getElementById('esp-ip').value = savedIp;
+      savedIp = savedIp.trim();
     }
-    let espIp = document.getElementById('esp-ip').value;
+    if (!savedIp) {
+      savedIp = 'http://192.168.1.218';
+    }
+    document.getElementById('esp-ip').value = savedIp;
+    let espIp = savedIp;
     let statusInterval, forecastInterval;
+    let isFetchingStatus = false;
+    let fastPollTimer = null;
+
+    const activeClass = ['bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'];
+    const idleClass = ['bg-slate-800', 'text-slate-400', 'border-slate-600/50'];
 
     function resetConnection() {
-      espIp = document.getElementById('esp-ip').value;
-      if (espIp.endsWith('/')) espIp = espIp.slice(0, -1);
-      if (!espIp.startsWith('http')) {
-        espIp = 'http://' + espIp;
-        document.getElementById('esp-ip').value = espIp;
+      let val = document.getElementById('esp-ip').value.trim();
+      if (val.endsWith('/')) val = val.slice(0, -1);
+      if (!val.startsWith('http://') && !val.startsWith('https://')) {
+        val = 'http://' + val;
       }
+      espIp = val;
+      document.getElementById('esp-ip').value = espIp;
       // Lưu IP vào localStorage để giữ sau khi refresh
       localStorage.setItem('greenhouse_esp_ip', espIp);
       clearInterval(statusInterval);
       clearInterval(forecastInterval);
+      if (fastPollTimer) clearTimeout(fastPollTimer);
+
+      const connEl = document.getElementById('conn-status');
+      if (connEl) {
+        connEl.textContent = 'Đang kết nối...';
+        connEl.className = 'font-medium text-amber-400';
+      }
       fetchStatus();
       fetchForecast();
       statusInterval = setInterval(fetchStatus, 4000);
       forecastInterval = setInterval(fetchForecast, 60000);
     }
 
-    async function req(path) {
+    async function req(path, timeoutMs = 5000) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const url = new URL(espIp + path);
         url.searchParams.append('t', Date.now()); // Chống cache trình duyệt
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error('Network response was not ok');
+        const res = await fetch(url.toString(), {
+          signal: controller.signal,
+          cache: 'no-store'
+        });
+        clearTimeout(timer);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         return await res.json();
       } catch (err) {
-        console.error(err);
+        clearTimeout(timer);
+        if (err.name !== 'AbortError') {
+          console.warn('[req] Lỗi ' + path + ':', err.message);
+        } else {
+          console.warn('[req] Hết thời gian chờ (timeout ' + timeoutMs + 'ms) tại ' + path);
+        }
         return null;
       }
     }
 
     function setOffline() {
       document.getElementById('dot-ping').classList.add('hidden');
-      document.getElementById('dot-solid').classList.replace('bg-emerald-500', 'bg-red-500');
-      document.getElementById('conn-status').textContent = 'Mất kết nối';
-      document.getElementById('conn-status').classList.replace('text-emerald-400', 'text-red-400');
+      document.getElementById('dot-solid').className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500';
+      const el = document.getElementById('conn-status');
+      if (el) {
+        el.textContent = 'Mất kết nối';
+        el.className = 'font-medium text-red-400';
+      }
     }
 
     function setOnline() {
       document.getElementById('dot-ping').classList.remove('hidden');
-      document.getElementById('dot-solid').classList.replace('bg-red-500', 'bg-emerald-500');
-      document.getElementById('conn-status').textContent = 'Online';
-      document.getElementById('conn-status').classList.replace('text-red-400', 'text-emerald-400');
+      document.getElementById('dot-solid').className = 'relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500';
+      const el = document.getElementById('conn-status');
+      if (el) {
+        el.textContent = 'Online';
+        el.className = 'font-medium text-emerald-400';
+      }
     }
 
     function updateBadge(id, text, colorClass) {
       const el = document.getElementById(id);
+      if (!el) return;
       el.textContent = text;
       // reset colors
       el.className = `px-2.5 py-1 rounded-lg text-[11px] font-bold border ${colorClass}`;
@@ -613,174 +773,695 @@
       }
     }
 
-    async function fetchStatus() {
-      const d = await req('/api/status');
-      if (!d) { setOffline(); return; }
-      setOnline();
 
-      // Sensors
-      document.getElementById('val-temp').textContent = d.temperature.toFixed(1);
-      const t = d.temperature;
-      updateBadge('st-temp', t < 25 ? '🟢 Mát mẻ' : t < 30 ? '🟡 Bình thường' : t < 35 ? '🟠 Nóng' : '🔴 Rất nóng', t < 25 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : t < 30 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : t < 35 ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30');
+    // ═════════════════════════════════════════════════════════════════════
+    //  QUẢN LÝ HỆ THỐNG TƯỚI THÔNG MINH (BƠM & CÁC VAN LỒNG)
+    // ═════════════════════════════════════════════════════════════════════
+    let valvesData = [
+      {
+        id: 1,
+        name: "Van 1 (Luống Cà Chua)",
+        pin: 26,
+        soilPin: 34,
+        soil: 0,
+        dry: 40.0,
+        wet: 65.0,
+        timeout: 300,
+        rest: 60,
+        mode: 1, // 0: OFF, 1: AUTO, 2: ON
+        running: false,
+        runtime: 0,
+        error: false,
+        collapsed: false
+      },
+      {
+        id: 2,
+        name: "Van 2 (Luống Dưa Lưới)",
+        pin: 13,
+        soilPin: 35,
+        soil: 0,
+        dry: 45.0,
+        wet: 70.0,
+        timeout: 300,
+        rest: 60,
+        mode: 1,
+        running: false,
+        runtime: 0,
+        error: false,
+        collapsed: false
+      }
+    ];
 
-      document.getElementById('val-humid').textContent = d.humidity.toFixed(1);
-      updateBadge('st-humid', d.humidity < 40 ? '🔴 Khô' : '🟢 Tốt', d.humidity < 40 ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
+    let pumpState = {
+      running: false,
+      enabled: true,
+      emergencyStop: false,
+      runtime: 0,
+      sequential: true
+    };
 
-      if (d.sht30_ext_ok) {
-        document.getElementById('val-temp-ext').textContent = d.temp_ext.toFixed(1);
-        const te = d.temp_ext;
-        updateBadge('st-temp-ext', te < 25 ? '🟢 Mát mẻ' : te < 30 ? '🟡 Bình thường' : te < 35 ? '🟠 Nóng' : '🔴 Rất nóng', te < 25 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : te < 30 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : te < 35 ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30');
+    function renderValves() {
+      const container = document.getElementById('valves-container');
+      if (!container) return;
 
-        document.getElementById('val-humid-ext').textContent = d.humid_ext.toFixed(1);
-        updateBadge('st-humid-ext', d.humid_ext < 40 ? '🔴 Khô' : '🟢 Tốt', d.humid_ext < 40 ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
+      const isLocked = pumpState.emergencyStop;
+
+      container.innerHTML = valvesData.map(v => {
+        let badgeText = 'DỪNG';
+        let badgeClass = 'bg-slate-700/50 text-slate-400 border-slate-600/50';
+        if (v.error) {
+          badgeText = 'LỖI SENSOR';
+          badgeClass = 'bg-red-500/20 text-red-400 border-red-500/40 animate-pulse font-bold';
+        } else if (v.running) {
+          badgeText = 'ĐANG TƯỚI';
+          badgeClass = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 animate-pulse font-bold';
+        } else if (v.mode === 1) {
+          badgeText = 'AUTO (CHỜ)';
+          badgeClass = 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30 font-semibold';
+        }
+
+        const soilPct = Math.min(100, Math.max(0, v.soil));
+        let barColor = 'from-red-500 to-amber-500';
+        if (soilPct >= v.wet) barColor = 'from-cyan-500 to-blue-500';
+        else if (soilPct >= v.dry) barColor = 'from-emerald-500 to-teal-500';
+
+        return `
+          <div id="valve-card-${v.id}" class="bg-slate-900/70 border ${v.running ? 'border-cyan-500/70 ring-1 ring-cyan-500/40 shadow-lg shadow-cyan-500/10' : 'border-slate-700/60'} rounded-2xl p-4 md:p-5 relative transition-all duration-300 ${isLocked ? 'opacity-40 pointer-events-none filter grayscale-[0.3]' : ''}">
+            
+            <!-- Header: Tên van (Click đổi tên) + Badge trạng thái + Nút Thu gọn -->
+            <div class="flex justify-between items-start gap-2 mb-3">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 group cursor-pointer" onclick="renameValve(${v.id})" title="Nhấp để đổi tên vùng cây">
+                  <span class="text-lg">🚰</span>
+                  <h4 id="v-name-${v.id}" class="text-sm md:text-base font-bold text-white group-hover:text-cyan-400 transition-colors">${v.name}</h4>
+                  <span class="text-xs text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">✏️</span>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2 font-mono">
+                  <span>Van: GPIO ${v.pin}</span>
+                  <span>•</span>
+                  <span>Cảm biến: GPIO ${v.soilPin}</span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span id="v-badge-${v.id}" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border ${badgeClass}">
+                  ${badgeText}
+                </span>
+                <button onclick="toggleValveCollapse(${v.id})" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors text-xs" title="Thu gọn / Mở rộng">
+                  ${v.collapsed ? '▼ Chi tiết' : '▲ Gọn'}
+                </button>
+              </div>
+            </div>
+
+            <!-- Cảnh báo lỗi cảm biến nếu có -->
+            ${v.error ? `
+            <div class="mb-3 p-2.5 bg-red-500/15 border border-red-500/40 rounded-xl text-red-300 text-xs flex items-center gap-2 animate-pulse">
+              <span>⚠️</span>
+              <span><b>LỖI CẢM BIẾN ĐẤT</b>: Tín hiệu ngoài dải hợp lệ. Van tự động ngắt để bảo vệ luống!</span>
+            </div>` : ''}
+
+            <!-- Đo độ ẩm đất hiện tại + Thanh tiến trình có vạch đánh dấu Khô/Ẩm -->
+            <div class="mb-4 bg-slate-950/70 p-3.5 rounded-xl border border-slate-800/80">
+              <div class="flex justify-between items-baseline mb-1.5">
+                <span class="text-xs text-slate-400 font-medium">Độ ẩm đất hiện tại</span>
+                <div class="flex items-baseline gap-1">
+                  <span id="v-soil-${v.id}" class="text-2xl font-bold ${v.error ? 'text-red-400' : 'text-white'} font-mono">${v.error ? '--' : v.soil.toFixed(1)}</span>
+                  <span class="text-xs text-slate-500 font-semibold">%</span>
+                </div>
+              </div>
+
+              <!-- Thanh tiến trình với 2 vạch đánh dấu ngưỡng -->
+              <div class="relative w-full h-3 bg-slate-800/90 rounded-full overflow-hidden shadow-inner my-2">
+                <div id="v-bar-${v.id}" class="h-full rounded-full transition-all duration-500 bg-gradient-to-r ${barColor}" style="width: ${v.error ? 0 : soilPct}%"></div>
+                
+                <!-- Vạch đánh dấu ngưỡng Khô -->
+                <div class="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 shadow" style="left: ${v.dry}%" title="Ngưỡng Khô (${v.dry}%)"></div>
+                <!-- Vạch đánh dấu ngưỡng Ẩm -->
+                <div class="absolute top-0 bottom-0 w-0.5 bg-cyan-400 z-10 shadow" style="left: ${v.wet}%" title="Ngưỡng Ẩm (${v.wet}%)"></div>
+              </div>
+
+              <div class="flex justify-between items-center text-[10px] text-slate-400 font-medium pt-1">
+                <span class="text-amber-400 flex items-center gap-0.5">◀ Khô: &lt; ${v.dry}%</span>
+                <span class="text-slate-400">Đã tưới: <b class="text-slate-200 font-mono">${v.running ? v.runtime + 's' : '0s'}</b> / ${v.timeout}s</span>
+                <span class="text-cyan-400 flex items-center gap-0.5">Ẩm: &gt; ${v.wet}% ▶</span>
+              </div>
+            </div>
+
+            <!-- 3 Nút Mode: AUTO / BẬT / TẮT -->
+            <div class="grid grid-cols-3 gap-2 mb-3">
+              <button onclick="setValveModeUi(${v.id}, 'auto')" id="v-btn-auto-${v.id}"
+                class="py-2 rounded-xl border text-xs font-bold transition-all shadow-sm ${v.mode === 1 ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50 ring-1 ring-indigo-500/30' : 'bg-slate-800 text-slate-400 border-slate-700/60 hover:bg-slate-750'}">
+                AUTO
+              </button>
+              <button onclick="setValveModeUi(${v.id}, 'on')" id="v-btn-on-${v.id}"
+                class="py-2 rounded-xl border text-xs font-bold transition-all shadow-sm ${v.mode === 2 ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50 ring-1 ring-cyan-500/30' : 'bg-slate-800 text-slate-400 border-slate-700/60 hover:bg-slate-750'}">
+                BẬT
+              </button>
+              <button onclick="setValveModeUi(${v.id}, 'off')" id="v-btn-off-${v.id}"
+                class="py-2 rounded-xl border text-xs font-bold transition-all shadow-sm ${v.mode === 0 ? 'bg-red-500/20 text-red-400 border-red-500/50 ring-1 ring-red-500/30' : 'bg-slate-800 text-slate-400 border-slate-700/60 hover:bg-slate-750'}">
+                TẮT
+              </button>
+            </div>
+
+            <!-- Cấu hình chi tiết -->
+            <div id="v-cfg-panel-${v.id}" class="${v.collapsed ? 'hidden' : 'block'} pt-3 border-t border-slate-800/80">
+              <div class="grid grid-cols-3 gap-2 mb-3">
+                <div>
+                  <label class="block text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">Khô (&lt; %)</label>
+                  <input type="number" id="v-in-dry-${v.id}" value="${v.dry}" min="1" max="99"
+                    class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white text-center outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 shadow-inner">
+                </div>
+                <div>
+                  <label class="block text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">Ẩm (&gt; %)</label>
+                  <input type="number" id="v-in-wet-${v.id}" value="${v.wet}" min="1" max="99"
+                    class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white text-center outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 shadow-inner">
+                </div>
+                <div>
+                  <label class="block text-[10px] uppercase tracking-wider font-semibold text-slate-400 mb-1">Timeout (s)</label>
+                  <input type="number" id="v-in-to-${v.id}" value="${v.timeout}" min="10" max="3600"
+                    class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white text-center outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 shadow-inner">
+                </div>
+              </div>
+              
+              <div class="flex justify-between items-center gap-2">
+                <button onclick="saveValveConfig(${v.id})"
+                  class="flex-1 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 py-2 px-3 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5">
+                  <span>💾</span> Lưu cấu hình van
+                </button>
+                ${v.id > 2 ? `
+                <button onclick="removeValve(${v.id})" class="text-xs text-red-400 hover:text-red-300 p-2 hover:bg-red-500/10 rounded-xl transition-colors border border-red-500/20" title="Xóa van này">
+                  🗑 Xóa
+                </button>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updatePumpUI() {
+      const pr = pumpState.running;
+      const pBadge = document.getElementById('pump-main-badge');
+      if (pBadge) {
+        pBadge.textContent = pr ? 'ĐANG CHẠY' : 'DỪNG';
+        pBadge.className = `px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider transition-all ${pr ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 animate-pulse' : 'bg-slate-700/50 text-slate-400 border-slate-600/50'}`;
+      }
+
+      // Dòng "Đang cấp cho: ..."
+      const activeValves = valvesData.filter(v => v.running);
+      const activeTextEl = document.getElementById('pump-active-valves-text');
+      if (activeTextEl) {
+        if (activeValves.length === 0) {
+          activeTextEl.textContent = 'Không có van nào mở';
+          activeTextEl.className = 'font-medium text-slate-500';
+        } else {
+          const names = activeValves.map(v => v.name).join(', ');
+          activeTextEl.innerHTML = `<span class="text-cyan-400 font-bold">💧 Đang cấp cho: ${names}</span>`;
+        }
+      }
+
+      // Runtime
+      const runEl = document.getElementById('pump-runtime-display');
+      if (runEl) {
+        if (pr) {
+          const mins = Math.floor(pumpState.runtime / 60);
+          const secs = pumpState.runtime % 60;
+          runEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          runEl.className = 'text-base font-bold text-cyan-400 font-mono';
+        } else {
+          runEl.textContent = '00:00';
+          runEl.className = 'text-base font-bold text-slate-500 font-mono';
+        }
+      }
+
+      // Open count
+      const countEl = document.getElementById('pump-open-count');
+      if (countEl) {
+        countEl.textContent = `${activeValves.length} / ${valvesData.length} van`;
+      }
+
+      // Emergency Stop Badge & Alert
+      const lockAlert = document.getElementById('pump-lock-alert');
+      const lockBadge = document.getElementById('pump-lock-badge');
+
+      if (pumpState.emergencyStop) {
+        if (lockAlert) lockAlert.classList.remove('hidden');
+        if (lockBadge) lockBadge.classList.remove('hidden');
       } else {
-        document.getElementById('val-temp-ext').textContent = '--.-';
-        document.getElementById('val-humid-ext').textContent = '--.-';
-        updateBadge('st-temp-ext', 'Lỗi', 'bg-red-500/10 text-red-400 border-red-500/30');
-        updateBadge('st-humid-ext', 'Lỗi', 'bg-red-500/10 text-red-400 border-red-500/30');
+        if (lockAlert) lockAlert.classList.add('hidden');
+        if (lockBadge) lockBadge.classList.add('hidden');
       }
 
-      document.getElementById('val-lux').textContent = Math.round(d.light);
-      updateBadge('st-lux', d.light < 500 ? '🌑 Tối' : d.light < 5000 ? '🌤 Bình thường' : '☀️ Sáng', d.light < 500 ? 'bg-slate-500/10 text-slate-400 border-slate-500/30' : d.light < 5000 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30');
+      // Sequential mode toggle
+      const seqLabel = document.getElementById('seq-mode-label');
+      if (seqLabel) {
+        seqLabel.textContent = `Tưới tuần tự: ${pumpState.sequential ? 'BẬT' : 'TẮT'}`;
+      }
 
-      document.getElementById('val-soil').textContent = d.soil.toFixed(0);
-      const s = d.soil;
-      updateBadge('st-soil', s < d.pump_on ? '🔴 Quá khô' : s < d.pump_off ? '🟡 Thấp' : '🟢 Đủ ẩm', s < d.pump_on ? 'bg-red-500/10 text-red-400 border-red-500/30' : s < d.pump_off ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
+      // Emergency stop button text
+      const emgText = document.getElementById('emg-btn-text');
+      const emgBtn = document.getElementById('btn-pump-emg');
+      if (emgText && emgBtn) {
+        if (pumpState.emergencyStop) {
+          emgText.textContent = 'KHÔI PHỤC BƠM';
+          emgBtn.className = 'flex items-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/10';
+        } else {
+          emgText.textContent = 'TẮT KHẨN CẤP';
+          emgBtn.className = 'flex items-center gap-2 bg-red-500/15 hover:bg-red-500/25 text-red-400 hover:text-red-300 border border-red-500/40 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg shadow-red-500/10 active:scale-95';
+        }
+      }
+    }
 
-      // Fan
-      document.getElementById('fan-speed').textContent = d.fan_speed;
-      document.getElementById('fan-bar').style.width = d.fan_speed + '%';
-      document.getElementById('fan-pwm').textContent = d.fan_pwm;
-      if (document.activeElement.id !== 'cfg-fan') document.getElementById('cfg-fan').value = d.fan_setpoint.toFixed(1);
+    async function setValveModeUi(valveId, modeStr) {
+      const v = valvesData.find(x => x.id === valveId);
+      if (!v) return;
+      if (pumpState.emergencyStop) {
+        alert('Hệ thống đang tắt khẩn cấp. Vui lòng nhấn "Khôi phục bơm" trước!');
+        return;
+      }
+      await ctrl({ valve: valveId, state: modeStr });
+      v.mode = modeStr === 'off' ? 0 : modeStr === 'auto' ? 1 : 2;
+      if (modeStr === 'off') v.running = false;
+      if (modeStr === 'on') v.running = true;
+      updatePumpUI();
+      renderValves();
+    }
 
-      updateActiveBtn('fan', d.fan_mode, 3);
-      const fmStr = d.fan_mode === 0 ? 'OFF' : d.fan_mode === 1 ? 'AUTO' : 'MANUAL';
-      const fmCol = d.fan_mode === 0 ? 'bg-red-500/10 text-red-400 border-red-500/30' : d.fan_mode === 1 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30';
-      updateBadge('fan-badge', fmStr, fmCol);
-      document.getElementById('fan-slider-wrap').style.display = d.fan_mode === 2 ? 'block' : 'none';
+    async function saveValveConfig(valveId) {
+      const dryVal = parseFloat(document.getElementById(`v-in-dry-${valveId}`).value);
+      const wetVal = parseFloat(document.getElementById(`v-in-wet-${valveId}`).value);
+      const toVal = parseInt(document.getElementById(`v-in-to-${valveId}`).value);
+      const v = valvesData.find(x => x.id === valveId);
+      if (v) {
+        v.dry = dryVal;
+        v.wet = wetVal;
+        v.timeout = toVal;
+      }
+      await ctrl({ valve_cfg: valveId, dry: dryVal, wet: wetVal, timeout: toVal, name: v ? v.name : `Van ${valveId}` });
+      alert(`Đã lưu cấu hình cho ${v ? v.name : 'Van ' + valveId}!`);
+      renderValves();
+    }
 
-      // Pump
-      const pr = d.pump_running;
-      const stEl = document.getElementById('pump-state');
-      stEl.textContent = pr ? 'BẬT' : 'TẮT';
-      stEl.className = `text-2xl font-bold ${pr ? 'text-cyan-400' : 'text-slate-500'}`;
-      updateBadge('pump-badge', pr ? 'ON' : 'OFF', pr ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
-      
-      // Update pump buttons
-      const pModes = ['btn-pump-auto', 'btn-pump-on', 'btn-pump-off'];
-      pModes.forEach(id => {
-        const b = document.getElementById(id);
-        if(b) { b.classList.remove('bg-indigo-500/20','text-indigo-400','border-indigo-500/50'); b.classList.add('bg-slate-800','text-slate-400','border-slate-600/50'); }
+    async function toggleEmergencyStop() {
+      if (!pumpState.emergencyStop) {
+        if (confirm('BẠN CÓ CHẮC MUỐN TẮT KHẨN CẤP?\nBơm và toàn bộ van sẽ ngắt ngay lập tức!')) {
+          await ctrl({ pump_emg: 1 });
+          pumpState.emergencyStop = true;
+          pumpState.running = false;
+          valvesData.forEach(v => { v.running = false; v.mode = 0; });
+          updatePumpUI();
+          renderValves();
+        }
+      } else {
+        await ctrl({ pump_emg: 0, pump_lock: 1 });
+        pumpState.emergencyStop = false;
+        pumpState.enabled = true;
+        updatePumpUI();
+        renderValves();
+      }
+    }
+
+    async function togglePumpSafetyLock(enabled) {
+      await ctrl({ pump_lock: enabled ? 1 : 0 });
+      pumpState.enabled = enabled;
+      if (!enabled) {
+        pumpState.running = false;
+        valvesData.forEach(v => { v.running = false; });
+      }
+      updatePumpUI();
+      renderValves();
+    }
+
+    async function toggleSequentialMode() {
+      pumpState.sequential = !pumpState.sequential;
+      await ctrl({ pump_seq: pumpState.sequential ? 1 : 0 });
+      updatePumpUI();
+    }
+
+    function renameValve(valveId) {
+      const v = valvesData.find(x => x.id === valveId);
+      if (!v) return;
+      const newName = prompt('Nhập tên vùng tưới mới:', v.name);
+      if (newName && newName.trim()) {
+        v.name = newName.trim();
+        saveValveConfig(valveId);
+      }
+    }
+
+    function toggleValveCollapse(valveId) {
+      const v = valvesData.find(x => x.id === valveId);
+      if (v) {
+        v.collapsed = !v.collapsed;
+        renderValves();
+      }
+    }
+
+    function addNewValve() {
+      const nextId = valvesData.length + 1;
+      const newName = prompt('Nhập tên vùng tưới mới (VD: Luống Dâu Tây):', `Van ${nextId} (Luống mới)`);
+      if (!newName) return;
+      valvesData.push({
+        id: nextId,
+        name: newName.trim(),
+        pin: 0,
+        soilPin: 0,
+        soil: 50.0,
+        dry: 40.0,
+        wet: 70.0,
+        timeout: 300,
+        rest: 60,
+        mode: 1,
+        running: false,
+        runtime: 0,
+        error: false,
+        collapsed: false
       });
-      const activeBtnId = !d.pump_manual ? 'btn-pump-auto' : (pr ? 'btn-pump-on' : 'btn-pump-off');
-      const ab = document.getElementById(activeBtnId);
-      if(ab) { ab.classList.add('bg-indigo-500/20','text-indigo-400','border-indigo-500/50'); ab.classList.remove('bg-slate-800','text-slate-400','border-slate-600/50'); }
+      renderValves();
+      const badge = document.getElementById('valve-count-badge');
+      if (badge) badge.textContent = `${valvesData.length} van`;
+    }
 
-      document.getElementById('pump-mode').textContent = d.pump_manual ? 'TAY' : 'AUTO';
-      document.getElementById('pump-time').textContent = pr ? d.pump_start_s + 's' : '--';
-      document.getElementById('p-on-v').textContent = d.pump_on;
-      document.getElementById('p-off-v').textContent = d.pump_off;
-      const isEditingPump = ['cfg-p-on', 'cfg-p-off'].includes(document.activeElement.id);
-      if (!isEditingPump) {
-        document.getElementById('cfg-p-on').value = d.pump_on;
-        document.getElementById('cfg-p-off').value = d.pump_off;
+    function removeValve(valveId) {
+      if (confirm(`Bạn có chắc muốn xóa Van ${valveId}?`)) {
+        valvesData = valvesData.filter(x => x.id !== valveId);
+        renderValves();
+        const badge = document.getElementById('valve-count-badge');
+        if (badge) badge.textContent = `${valvesData.length} van`;
       }
+    }
 
-      let pIdx = 0; // auto
-      if (d.pump_manual) pIdx = pr ? 1 : 2;
-      const btnPA = document.getElementById('btn-pump-auto');
-      const btnPOn = document.getElementById('btn-pump-on');
-      const btnPOff = document.getElementById('btn-pump-off');
+    // Wrappers tương thích ngược
+    async function setValve(v, m, btnId) { setValveModeUi(v, m); }
+    async function setPump(m, btnId) {
+      if (m === 'off') toggleEmergencyStop();
+      else if (m === 'on') setValveModeUi(1, 'on');
+      else setValveModeUi(1, 'auto');
+    }
 
-      const activeClass = ['bg-blue-500/20', 'text-blue-400', 'border-blue-500/50'];
-      const idleClass = ['bg-slate-800', 'text-slate-400', 'border-slate-600/50'];
+    async function fetchStatus() {
+      if (isFetchingStatus) return; // Chống gửi dồn dập nhiều request status cùng lúc
+      isFetchingStatus = true;
+      try {
+        const d = await req('/api/status', 5000);
+        if (!d) { setOffline(); return; }
+        setOnline();
 
-      [btnPA, btnPOn, btnPOff].forEach(b => { b.classList.remove(...activeClass); b.classList.add(...idleClass) });
-      (pIdx === 0 ? btnPA : pIdx === 1 ? btnPOn : btnPOff).classList.remove(...idleClass);
-      (pIdx === 0 ? btnPA : pIdx === 1 ? btnPOn : btnPOff).classList.add(...activeClass);
+        // Sensors
+        if (d.sht30_ok) {
+          document.getElementById('val-temp').textContent = d.temperature.toFixed(1);
+          const t = d.temperature;
+          updateBadge('st-temp', t < 25 ? '🟢 Mát mẻ' : t < 30 ? '🟡 Bình thường' : t < 35 ? '🟠 Nóng' : '🔴 Rất nóng', t < 25 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : t < 30 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : t < 35 ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30');
 
-      // ─── Mist (Phun sương) ──────────────────────────────
-      const mr = d.mist_running;
-      const mistEl = document.getElementById('mist-state');
-      mistEl.textContent = mr ? 'BẬT' : 'TẮT';
-      mistEl.className = `text-2xl font-bold ${mr ? 'text-teal-400' : 'text-slate-500'}`;
-      updateBadge('mist-badge', mr ? 'ON' : 'OFF', mr ? 'bg-teal-500/10 text-teal-400 border-teal-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
-      document.getElementById('mist-mode').textContent = d.mist_manual ? 'TAY' : 'AUTO';
+          document.getElementById('val-humid').textContent = d.humidity.toFixed(1);
+          updateBadge('st-humid', d.humidity < 40 ? '🔴 Khô' : '🟢 Tốt', d.humidity < 40 ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
+        } else {
+          document.getElementById('val-temp').textContent = '--.-';
+          document.getElementById('val-humid').textContent = '--.-';
+          updateBadge('st-temp', 'Lỗi', 'bg-red-500/10 text-red-400 border-red-500/30');
+          updateBadge('st-humid', 'Lỗi', 'bg-red-500/10 text-red-400 border-red-500/30');
+        }
 
-      // Highlight mist buttons
-      const mistBtns = ['btn-mist-auto', 'btn-mist-on', 'btn-mist-off'];
-      mistBtns.forEach(id => {
-        const b = document.getElementById(id);
-        if(b) { b.classList.remove(...activeClass); b.classList.add(...idleClass); }
-      });
-      const mistActiveId = !d.mist_manual ? 'btn-mist-auto' : (mr ? 'btn-mist-on' : 'btn-mist-off');
-      const mab = document.getElementById(mistActiveId);
-      if(mab) { mab.classList.remove(...idleClass); mab.classList.add(...activeClass); }
+        if (d.sht30_ext_ok) {
+          document.getElementById('val-temp-ext').textContent = d.temp_ext.toFixed(1);
+          const te = d.temp_ext;
+          updateBadge('st-temp-ext', te < 25 ? '🟢 Mát mẻ' : te < 30 ? '🟡 Bình thường' : te < 35 ? '🟠 Nóng' : '🔴 Rất nóng', te < 25 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : te < 30 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : te < 35 ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30');
 
-      // ─── Light (Đèn) ────────────────────────────────────
-      const lr = d.light_running;
-      const lampEl = document.getElementById('lamp-state');
-      lampEl.textContent = lr ? 'BẬT' : 'TẮT';
-      lampEl.className = `text-2xl font-bold ${lr ? 'text-yellow-400' : 'text-slate-500'}`;
-      updateBadge('lamp-badge', lr ? 'ON' : 'OFF', lr ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
-      document.getElementById('lamp-mode').textContent = d.light_manual ? 'TAY' : 'AUTO';
+          document.getElementById('val-humid-ext').textContent = d.humid_ext.toFixed(1);
+          updateBadge('st-humid-ext', d.humid_ext < 40 ? '🔴 Khô' : '🟢 Tốt', d.humid_ext < 40 ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
+        } else {
+          document.getElementById('val-temp-ext').textContent = '--.-';
+          document.getElementById('val-humid-ext').textContent = '--.-';
+          updateBadge('st-temp-ext', 'Lỗi', 'bg-red-500/10 text-red-400 border-red-500/30');
+          updateBadge('st-humid-ext', 'Lỗi', 'bg-red-500/10 text-red-400 border-red-500/30');
+        }
 
-      // Highlight light buttons
-      const lampBtns = ['btn-lamp-auto', 'btn-lamp-on', 'btn-lamp-off'];
-      lampBtns.forEach(id => {
-        const b = document.getElementById(id);
-        if(b) { b.classList.remove(...activeClass); b.classList.add(...idleClass); }
-      });
-      const lampActiveId = !d.light_manual ? 'btn-lamp-auto' : (lr ? 'btn-lamp-on' : 'btn-lamp-off');
-      const lab = document.getElementById(lampActiveId);
-      if(lab) { lab.classList.remove(...idleClass); lab.classList.add(...activeClass); }
+        if (d.bh1750_ok) {
+          document.getElementById('val-lux').textContent = Math.round(d.light);
+          updateBadge('st-lux', d.light < 500 ? '🌑 Tối' : d.light < 5000 ? '🌤 Bình thường' : '☀️ Sáng', d.light < 500 ? 'bg-slate-500/10 text-slate-400 border-slate-500/30' : d.light < 5000 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30');
+        } else {
+          document.getElementById('val-lux').textContent = '----';
+          updateBadge('st-lux', 'Lỗi', 'bg-red-500/10 text-red-400 border-red-500/30');
+        }
+
+        if (document.getElementById('val-soil')) {
+          document.getElementById('val-soil').textContent = d.soil.toFixed(0);
+        }
+        if (document.getElementById('st-soil')) {
+          const s = d.soil;
+          updateBadge('st-soil', s < d.pump_on ? '🔴 Quá khô' : s < d.pump_off ? '🟡 Thấp' : '🟢 Đủ ẩm', s < d.pump_on ? 'bg-red-500/10 text-red-400 border-red-500/30' : s < d.pump_off ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
+        }
+
+        // Fan
+        document.getElementById('fan-speed').textContent = d.fan_speed;
+        document.getElementById('fan-bar').style.width = d.fan_speed + '%';
+        document.getElementById('fan-pwm').textContent = d.fan_pwm;
+        if (document.activeElement.id !== 'cfg-fan') document.getElementById('cfg-fan').value = d.fan_setpoint.toFixed(1);
+
+        updateActiveBtn('fan', d.fan_mode, 3);
+        const fmStr = d.fan_mode === 0 ? 'OFF' : d.fan_mode === 1 ? 'AUTO' : 'MANUAL';
+        const fmCol = d.fan_mode === 0 ? 'bg-red-500/10 text-red-400 border-red-500/30' : d.fan_mode === 1 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+        updateBadge('fan-badge', fmStr, fmCol);
+
+        const fanLevelsWrap = document.getElementById('fan-levels-wrap');
+        if (fanLevelsWrap) {
+          fanLevelsWrap.style.display = d.fan_mode === 2 ? 'block' : 'none';
+        }
+
+        // Highlight active fan level button if in manual mode (40, 60, 80, 100%)
+        const fanLvls = ['btn-fan-lvl-40', 'btn-fan-lvl-60', 'btn-fan-lvl-80', 'btn-fan-lvl-100'];
+        fanLvls.forEach(id => {
+          const b = document.getElementById(id);
+          if (b) { b.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+        });
+        if (d.fan_mode === 2) {
+          const fanSpd = d.fan_speed || 0;
+          let matchId = '';
+          if (fanSpd <= 50) matchId = 'btn-fan-lvl-40';
+          else if (fanSpd <= 70) matchId = 'btn-fan-lvl-60';
+          else if (fanSpd <= 90) matchId = 'btn-fan-lvl-80';
+          else matchId = 'btn-fan-lvl-100';
+          const activeLvlBtn = document.getElementById(matchId);
+          if (activeLvlBtn) {
+            activeLvlBtn.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600/50');
+            activeLvlBtn.classList.add('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+          }
+          if (document.getElementById('fan-level-hint')) {
+            document.getElementById('fan-level-hint').textContent = `${d.fan_speed}% (PWM ${d.fan_pwm || 0})`;
+          }
+        }
+
+        // Cập nhật thẻ tổng quan ẩm đất trên cùng
+        const s1 = d.soil || 0;
+        const s2 = d.soil2 || 0;
+        if (document.getElementById('val-soil-1')) document.getElementById('val-soil-1').textContent = d.v1_err ? '--' : s1.toFixed(0);
+        if (document.getElementById('val-soil-2')) document.getElementById('val-soil-2').textContent = d.v2_err ? '--' : s2.toFixed(0);
+        if (document.getElementById('soil-top-name-1') && d.v1_name) document.getElementById('soil-top-name-1').textContent = d.v1_name;
+        if (document.getElementById('soil-top-name-2') && d.v2_name) document.getElementById('soil-top-name-2').textContent = d.v2_name;
+        if (document.getElementById('st-soil-1')) {
+          if (d.v1_err) updateBadge('st-soil-1', 'Lỗi / Hở dây', 'bg-red-500/10 text-red-400 border-red-500/30');
+          else updateBadge('st-soil-1', s1 < (d.v1_dry || 40) ? '🔴 Cần tưới' : s1 < (d.v1_wet || 65) ? '🟡 Bình thường' : '🟢 Đủ ẩm', s1 < (d.v1_dry || 40) ? 'bg-red-500/10 text-red-400 border-red-500/30' : s1 < (d.v1_wet || 65) ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
+        }
+        if (document.getElementById('st-soil-2')) {
+          if (d.v2_err) updateBadge('st-soil-2', 'Lỗi / Hở dây', 'bg-red-500/10 text-red-400 border-red-500/30');
+          else updateBadge('st-soil-2', s2 < (d.v2_dry || 45) ? '🔴 Cần tưới' : s2 < (d.v2_wet || 70) ? '🟡 Bình thường' : '🟢 Đủ ẩm', s2 < (d.v2_dry || 45) ? 'bg-red-500/10 text-red-400 border-red-500/30' : s2 < (d.v2_wet || 70) ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
+        }
+
+        // Cập nhật state hệ thống tưới (Van 1 & Van 2)
+        if (d.v1_soil !== undefined) valvesData[0].soil = d.v1_soil;
+        else valvesData[0].soil = d.soil || 0;
+        if (d.v1_run !== undefined) valvesData[0].running = d.v1_run;
+        if (d.v1_mode !== undefined) valvesData[0].mode = d.v1_mode;
+        if (d.v1_dry !== undefined && document.activeElement.id !== 'v-in-dry-1') valvesData[0].dry = d.v1_dry;
+        if (d.v1_wet !== undefined && document.activeElement.id !== 'v-in-wet-1') valvesData[0].wet = d.v1_wet;
+        if (d.v1_to !== undefined && document.activeElement.id !== 'v-in-to-1') valvesData[0].timeout = d.v1_to;
+        if (d.v1_time !== undefined) valvesData[0].runtime = d.v1_time;
+        if (d.v1_err !== undefined) valvesData[0].error = d.v1_err;
+        if (d.v1_name && d.v1_name.length > 0) valvesData[0].name = d.v1_name;
+
+        if (d.v2_soil !== undefined) valvesData[1].soil = d.v2_soil;
+        else valvesData[1].soil = d.soil2 || 0;
+        if (d.v2_run !== undefined) valvesData[1].running = d.v2_run;
+        if (d.v2_mode !== undefined) valvesData[1].mode = d.v2_mode;
+        if (d.v2_dry !== undefined && document.activeElement.id !== 'v-in-dry-2') valvesData[1].dry = d.v2_dry;
+        if (d.v2_wet !== undefined && document.activeElement.id !== 'v-in-wet-2') valvesData[1].wet = d.v2_wet;
+        if (d.v2_to !== undefined && document.activeElement.id !== 'v-in-to-2') valvesData[1].timeout = d.v2_to;
+        if (d.v2_time !== undefined) valvesData[1].runtime = d.v2_time;
+        if (d.v2_err !== undefined) valvesData[1].error = d.v2_err;
+        if (d.v2_name && d.v2_name.length > 0) valvesData[1].name = d.v2_name;
+
+        // Cập nhật state bơm
+        if (d.pump_running !== undefined) pumpState.running = d.pump_running;
+        pumpState.enabled = true; // Luôn sẵn sàng hoạt động
+        if (d.pump_emergency !== undefined) pumpState.emergencyStop = d.pump_emergency;
+        if (d.pump_time !== undefined) pumpState.runtime = d.pump_time;
+        if (d.pump_seq !== undefined) pumpState.sequential = d.pump_seq;
+
+        updatePumpUI();
+        renderValves();
+
+        // ─── Mist (Phun sương) ──────────────────────────────
+        const mr = d.mist_running;
+        const mistEl = document.getElementById('mist-state');
+        mistEl.textContent = mr ? 'BẬT' : 'TẮT';
+        mistEl.className = `text-2xl font-bold ${mr ? 'text-teal-400' : 'text-slate-500'}`;
+        updateBadge('mist-badge', mr ? 'ON' : 'OFF', mr ? 'bg-teal-500/10 text-teal-400 border-teal-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+        document.getElementById('mist-mode').textContent = d.mist_manual ? 'TAY' : 'AUTO';
+
+        // Highlight mist buttons
+        const mistBtns = ['btn-mist-auto', 'btn-mist-on', 'btn-mist-off'];
+        mistBtns.forEach(id => {
+          const b = document.getElementById(id);
+          if (b) { b.classList.remove(...activeClass); b.classList.add(...idleClass); }
+        });
+        const mistActiveId = !d.mist_manual ? 'btn-mist-auto' : (mr ? 'btn-mist-on' : 'btn-mist-off');
+        const mab = document.getElementById(mistActiveId);
+        if (mab) { mab.classList.remove(...idleClass); mab.classList.add(...activeClass); }
+
+        // ─── Light (Đèn) ────────────────────────────────────
+        const lr = d.light_running;
+        const lampEl = document.getElementById('lamp-state');
+        lampEl.textContent = lr ? 'BẬT' : 'TẮT';
+        lampEl.className = `text-2xl font-bold ${lr ? 'text-yellow-400' : 'text-slate-500'}`;
+        updateBadge('lamp-badge', lr ? 'ON' : 'OFF', lr ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+        document.getElementById('lamp-mode').textContent = d.light_manual ? 'TAY' : 'AUTO';
+
+        // Highlight light buttons
+        const lampBtns = ['btn-lamp-auto', 'btn-lamp-on', 'btn-lamp-off'];
+        lampBtns.forEach(id => {
+          const b = document.getElementById(id);
+          if (b) { b.classList.remove(...activeClass); b.classList.add(...idleClass); }
+        });
+        const lampActiveId = !d.light_manual ? 'btn-lamp-auto' : (lr ? 'btn-lamp-on' : 'btn-lamp-off');
+        const lab = document.getElementById(lampActiveId);
+        if (lab) { lab.classList.remove(...idleClass); lab.classList.add(...activeClass); }
 
 
-      // --- Heater ---
-      const hr = d.heater_running;
-      const heaterEl = document.getElementById('heater-state');
-      if (heaterEl) {
-        heaterEl.textContent = hr ? 'BẬT' : 'TẮT';
-        heaterEl.className = `text-2xl font-bold ${hr ? 'text-red-400' : 'text-slate-500'}`;
-        updateBadge('heater-badge', hr ? 'ON' : 'OFF', hr ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
-        document.getElementById('heater-mode').textContent = d.heater_manual ? 'TAY' : 'AUTO';
+        // --- Heater ---
+        const hr = d.heater_running;
+        const hpwm = d.heater_pwm !== undefined ? d.heater_pwm : (hr ? 255 : 0);
+        const hPercent = Math.round((hpwm / 255) * 100);
+
+        const heaterEl = document.getElementById('heater-state');
+        if (heaterEl) {
+          heaterEl.textContent = hr ? (d.heater_manual ? `BẬT (${hPercent}%)` : 'BẬT') : 'TẮT';
+          heaterEl.className = `font-bold ${hr ? 'text-red-400' : 'text-slate-400'}`;
+          updateBadge('heater-badge', hr ? 'ON' : 'OFF', hr ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+          document.getElementById('heater-mode').textContent = d.heater_manual ? 'TAY' : 'AUTO';
+          if (document.getElementById('heater-pwm')) document.getElementById('heater-pwm').textContent = hpwm;
+          if (document.getElementById('heater-power')) document.getElementById('heater-power').textContent = hPercent;
+          if (document.getElementById('heater-bar')) document.getElementById('heater-bar').style.width = `${hPercent}%`;
+        }
+
+        // Highlight Heater Mode Buttons (AUTO, TẮT)
+        const heaterBtns = ['btn-heater-auto', 'btn-heater-off'];
+        heaterBtns.forEach(id => {
+          const b = document.getElementById(id);
+          if (b) { b.classList.remove(...activeClass); b.classList.add(...idleClass); }
+        });
+        const heaterActiveId = !d.heater_manual ? 'btn-heater-auto' : (!hr ? 'btn-heater-off' : '');
+        if (heaterActiveId) {
+          const hab = document.getElementById(heaterActiveId);
+          if (hab) { hab.classList.remove(...idleClass); hab.classList.add(...activeClass); }
+        }
+
+        // Highlight Heater 4 Levels (40, 60, 80, 100%)
+        const hLvls = ['btn-heater-lvl-40', 'btn-heater-lvl-60', 'btn-heater-lvl-80', 'btn-heater-lvl-100'];
+        hLvls.forEach(id => {
+          const b = document.getElementById(id);
+          if (b) { b.classList.remove('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+        });
+        if (d.heater_manual && hr) {
+          let matchHId = '';
+          if (hPercent <= 50) matchHId = 'btn-heater-lvl-40';
+          else if (hPercent <= 70) matchHId = 'btn-heater-lvl-60';
+          else if (hPercent <= 90) matchHId = 'btn-heater-lvl-80';
+          else matchHId = 'btn-heater-lvl-100';
+          const activeHLvlBtn = document.getElementById(matchHId);
+          if (activeHLvlBtn) {
+            activeHLvlBtn.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600/50');
+            activeHLvlBtn.classList.add('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50');
+          }
+          if (document.getElementById('heater-level-hint')) {
+            document.getElementById('heater-level-hint').textContent = `${hPercent}% (PWM ${hpwm})`;
+          }
+        } else if (!hr) {
+          if (document.getElementById('heater-level-hint')) {
+            document.getElementById('heater-level-hint').textContent = 'Đang TẮT (0%)';
+          }
+        } else {
+          if (document.getElementById('heater-level-hint')) {
+            document.getElementById('heater-level-hint').textContent = `Tự động: ${hPercent}%`;
+          }
+        }
+
+        // --- Roof / Rèm Cửa ---
+        const ra = d.roof_angle !== undefined ? d.roof_angle : 0;
+        const rPercent = Math.round((ra / 180) * 100);
+        const isOpen = (ra > 0);
+
+        const roofEl = document.getElementById('roof-state');
+        if (roofEl) {
+          roofEl.textContent = ra === 0 ? 'ĐÓNG' : (ra === 180 ? 'MỞ' : 'MỞ ' + ra + '°');
+          roofEl.className = `font-bold ${isOpen ? 'text-cyan-400' : 'text-slate-400'}`;
+          updateBadge('roof-badge', isOpen ? 'MỞ' : 'ĐÓNG', isOpen ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+          document.getElementById('roof-mode').textContent = d.roof_manual ? 'TAY' : 'AUTO';
+          if (document.getElementById('roof-angle-val')) document.getElementById('roof-angle-val').textContent = ra;
+          if (document.getElementById('roof-percent')) document.getElementById('roof-percent').textContent = rPercent;
+          if (document.getElementById('roof-bar')) document.getElementById('roof-bar').style.width = `${rPercent}%`;
+
+          // Sync range slider if user is not actively dragging it
+          if (!isDraggingRoofSlider && document.getElementById('roof-slider')) {
+            document.getElementById('roof-slider').value = ra;
+            document.getElementById('roof-slider-val').textContent = ra;
+            document.getElementById('roof-slider-percent').textContent = rPercent;
+          }
+        }
+
+        // Highlight Roof Buttons
+        const roofBtns = ['btn-roof-auto', 'btn-roof-open', 'btn-roof-close'];
+        roofBtns.forEach(id => {
+          const b = document.getElementById(id);
+          if (b) { b.classList.remove(...activeClass); b.classList.add(...idleClass); }
+        });
+        let roofActiveId = '';
+        if (!d.roof_manual) {
+          roofActiveId = 'btn-roof-auto';
+        } else if (ra === 180) {
+          roofActiveId = 'btn-roof-open';
+        } else if (ra === 0) {
+          roofActiveId = 'btn-roof-close';
+        }
+        if (roofActiveId) {
+          const rab = document.getElementById(roofActiveId);
+          if (rab) { rab.classList.remove(...idleClass); rab.classList.add(...activeClass); }
+        }
+
+        // Light threshold config
+        if (document.activeElement.id !== 'cfg-light-th') {
+          document.getElementById('cfg-light-th').value = d.light_thresh;
+        }
+
+        // Sys info
+        document.getElementById('sys-recs').textContent = d.total_records.toLocaleString('vi-VN');
+        document.getElementById('sys-flash').textContent = `${d.file_kb} / ${d.flash_total_kb} KB`;
+        document.getElementById('sys-rssi').textContent = `${d.wifi_rssi} dBm`;
+
+        const up = d.uptime;
+        const upD = Math.floor(up / 86400);
+        const upH = Math.floor((up % 86400) / 3600);
+        const upM = Math.floor((up % 3600) / 60);
+        let upStr = '';
+        if (upD > 0) upStr += `${upD}d `;
+        if (upH > 0 || upD > 0) upStr += `${upH}h `;
+        upStr += `${upM}m`;
+        document.getElementById('sys-uptime').textContent = upStr;
+        document.getElementById('sys-ntp').textContent = d.ntp_synced ? 'Đã đồng bộ' : 'Chưa đồng bộ';
+        document.getElementById('sys-ntp').className = `text-sm font-bold ${d.ntp_synced ? 'text-emerald-400' : 'text-amber-400'}`;
+      } catch (err) {
+        console.error('[fetchStatus error]', err);
+      } finally {
+        isFetchingStatus = false;
       }
-
-      // --- Roof ---
-      const ra = d.roof_angle;
-      const roofEl = document.getElementById('roof-state');
-      if (roofEl) {
-        roofEl.textContent = ra == 180 ? 'MỞ' : 'ĐÓNG';
-        roofEl.className = `text-2xl font-bold ${ra == 180 ? 'text-cyan-400' : 'text-slate-500'}`;
-        updateBadge('roof-badge', ra == 180 ? 'MỞ' : 'ĐÓNG', ra == 180 ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
-        document.getElementById('roof-mode').textContent = d.roof_manual ? 'TAY' : 'AUTO';
-      }
-
-      // --- Valves ---
-      updateBadge('valve1-badge', d.valve1_running ? 'ON' : 'OFF', d.valve1_running ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
-      updateBadge('valve2-badge', d.valve2_running ? 'ON' : 'OFF', d.valve2_running ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
-
-      // Light threshold config
-      if (document.activeElement.id !== 'cfg-light-th') {
-        document.getElementById('cfg-light-th').value = d.light_thresh;
-      }
-
-      // Sys info
-      document.getElementById('sys-recs').textContent = d.total_records.toLocaleString('vi-VN');
-      document.getElementById('sys-flash').textContent = `${d.file_kb} / ${d.flash_total_kb} KB`;
-      document.getElementById('sys-rssi').textContent = `${d.wifi_rssi} dBm`;
-
-      const up = d.uptime;
-      const upD = Math.floor(up / 86400);
-      const upH = Math.floor((up % 86400) / 3600);
-      const upM = Math.floor((up % 3600) / 60);
-      let upStr = '';
-      if (upD > 0) upStr += `${upD}d `;
-      if (upH > 0 || upD > 0) upStr += `${upH}h `;
-      upStr += `${upM}m`;
-      document.getElementById('sys-uptime').textContent = upStr;
-      document.getElementById('sys-ntp').textContent = d.ntp_synced ? 'Đã đồng bộ' : 'Chưa đồng bộ';
-      document.getElementById('sys-ntp').className = `text-sm font-bold ${d.ntp_synced ? 'text-emerald-400' : 'text-amber-400'}`;
     }
 
     async function fetchForecast() {
@@ -808,52 +1489,166 @@
       const btn = document.getElementById(btnId);
       if (!btn) return;
       btn.classList.add('opacity-50', 'pointer-events-none');
-      setTimeout(() => btn.classList.remove('opacity-50', 'pointer-events-none'), 3000);
+      setTimeout(() => btn.classList.remove('opacity-50', 'pointer-events-none'), 600);
     }
 
-    // Poll sau khi gửi lệnh: 1.5s, 4s (đủ thời gian LoRa truyền về)
-    function fastPoll() {
-      setTimeout(fetchStatus, 1500);
-      setTimeout(fetchStatus, 4000);
+    function applyPartialState(d) {
+      if (!d) return;
+      if (d.light_running !== undefined && d.light_manual !== undefined) {
+        const lr = d.light_running;
+        const lampEl = document.getElementById('lamp-state');
+        if (lampEl) {
+          lampEl.textContent = lr ? 'BẬT' : 'TẮT';
+          lampEl.className = `text-2xl font-bold ${lr ? 'text-yellow-400' : 'text-slate-500'}`;
+        }
+        updateBadge('lamp-badge', lr ? 'ON' : 'OFF', lr ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+        const lampMode = document.getElementById('lamp-mode');
+        if (lampMode) lampMode.textContent = d.light_manual ? 'TAY' : 'AUTO';
+        const lampBtns = ['btn-lamp-auto', 'btn-lamp-on', 'btn-lamp-off'];
+        lampBtns.forEach(id => {
+          const b = document.getElementById(id);
+          if (b) { b.classList.remove(...activeClass); b.classList.add(...idleClass); }
+        });
+        const lampActiveId = !d.light_manual ? 'btn-lamp-auto' : (lr ? 'btn-lamp-on' : 'btn-lamp-off');
+        const lab = document.getElementById(lampActiveId);
+        if (lab) { lab.classList.remove(...idleClass); lab.classList.add(...activeClass); }
+      }
+      if (d.mist_running !== undefined && d.mist_manual !== undefined) {
+        const mr = d.mist_running;
+        const mistEl = document.getElementById('mist-state');
+        if (mistEl) {
+          mistEl.textContent = mr ? 'BẬT' : 'TẮT';
+          mistEl.className = `text-2xl font-bold ${mr ? 'text-teal-400' : 'text-slate-500'}`;
+        }
+        updateBadge('mist-badge', mr ? 'ON' : 'OFF', mr ? 'bg-teal-500/10 text-teal-400 border-teal-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+        const mistMode = document.getElementById('mist-mode');
+        if (mistMode) mistMode.textContent = d.mist_manual ? 'TAY' : 'AUTO';
+        const mistBtns = ['btn-mist-auto', 'btn-mist-on', 'btn-mist-off'];
+        mistBtns.forEach(id => {
+          const b = document.getElementById(id);
+          if (b) { b.classList.remove(...activeClass); b.classList.add(...idleClass); }
+        });
+        const mistActiveId = !d.mist_manual ? 'btn-mist-auto' : (mr ? 'btn-mist-on' : 'btn-mist-off');
+        const mab = document.getElementById(mistActiveId);
+        if (mab) { mab.classList.remove(...idleClass); mab.classList.add(...activeClass); }
+      }
+      if (d.fan_mode !== undefined) {
+        updateActiveBtn('fan', d.fan_mode, 3);
+        const fmStr = d.fan_mode === 0 ? 'OFF' : d.fan_mode === 1 ? 'AUTO' : 'MANUAL';
+        const fmCol = d.fan_mode === 0 ? 'bg-red-500/10 text-red-400 border-red-500/30' : d.fan_mode === 1 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-purple-500/10 text-purple-400 border-purple-500/30';
+        updateBadge('fan-badge', fmStr, fmCol);
+        const fanLevelsWrap = document.getElementById('fan-levels-wrap');
+        if (fanLevelsWrap) fanLevelsWrap.style.display = d.fan_mode === 2 ? 'block' : 'none';
+      }
+      if (d.fan_speed !== undefined) {
+        const fsEl = document.getElementById('fan-speed');
+        if (fsEl) fsEl.textContent = d.fan_speed;
+        const fbEl = document.getElementById('fan-bar');
+        if (fbEl) fbEl.style.width = d.fan_speed + '%';
+      }
+      if (d.heater_running !== undefined && d.heater_manual !== undefined) {
+        const hr = d.heater_running;
+        const hpwm = d.heater_pwm !== undefined ? d.heater_pwm : (hr ? 255 : 0);
+        const hPercent = Math.round((hpwm / 255) * 100);
+        const heaterEl = document.getElementById('heater-state');
+        if (heaterEl) {
+          heaterEl.textContent = hr ? (d.heater_manual ? `BẬT (${hPercent}%)` : 'BẬT') : 'TẮT';
+          heaterEl.className = `font-bold ${hr ? 'text-red-400' : 'text-slate-400'}`;
+        }
+        updateBadge('heater-badge', hr ? 'ON' : 'OFF', hr ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+        const hmEl = document.getElementById('heater-mode');
+        if (hmEl) hmEl.textContent = d.heater_manual ? 'TAY' : 'AUTO';
+      }
+      if (d.roof_angle !== undefined) {
+        const ra = d.roof_angle;
+        const rPercent = Math.round((ra / 180) * 100);
+        const isOpen = (ra > 0);
+        const roofEl = document.getElementById('roof-state');
+        if (roofEl) {
+          roofEl.textContent = ra === 0 ? 'ĐÓNG' : (ra === 180 ? 'MỞ' : 'MỞ ' + ra + '°');
+          roofEl.className = `font-bold ${isOpen ? 'text-cyan-400' : 'text-slate-400'}`;
+        }
+        updateBadge('roof-badge', isOpen ? 'MỞ' : 'ĐÓNG', isOpen ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+        const rmEl = document.getElementById('roof-mode');
+        if (rmEl) rmEl.textContent = d.roof_manual ? 'TAY' : 'AUTO';
+      }
     }
+
+    let ctrlQueue = Promise.resolve();
 
     async function ctrl(params, btnId) {
       if (btnId) showCmdSending(btnId);
-      try {
-        const r = await fetch(espIp + '/api/control?' + new URLSearchParams(params));
-        if (!r.ok) console.warn('[ctrl] Gateway trả lỗi:', r.status);
-      } catch(e) {
-        console.error('[ctrl] Không kết nối được Gateway:', e);
-        setOffline();
-        return;
-      }
-      fastPoll();
+      ctrlQueue = ctrlQueue.then(async () => {
+        try {
+          const d = await req('/api/control?' + new URLSearchParams(params), 3500);
+          if (d && d.status === 'success') {
+            applyPartialState(d);
+          } else {
+            console.warn('[ctrl] Lệnh chưa được Gateway xác nhận:', params, d);
+          }
+          // Đệm 180ms giữa các lệnh liên tiếp để sóng vô tuyến LoRa không bị va chạm
+          await new Promise(r => setTimeout(r, 180));
+        } catch (e) {
+          console.error('[ctrl] Không kết nối được Gateway:', e);
+          setOffline();
+        }
+      });
+      await ctrlQueue;
+
+      if (fastPollTimer) clearTimeout(fastPollTimer);
+      fastPollTimer = setTimeout(() => {
+        fetchStatus();
+      }, 1200);
     }
 
     async function setFanMode(m, btnId) {
-      // Cập nhật nút ngay lập tức
-      const modes = ['btn-fan-off', 'btn-fan-auto', 'btn-fan-manual'];
+      const wrap = document.getElementById('fan-levels-wrap');
+      if (wrap) {
+        wrap.style.display = (m === 2) ? 'block' : 'none';
+      }
+      const modes = ['btn-fan-0', 'btn-fan-1', 'btn-fan-2'];
       modes.forEach(id => {
         const b = document.getElementById(id);
-        if (b) { b.classList.remove('bg-indigo-500/20','text-indigo-400','border-indigo-500/50'); b.classList.add('bg-slate-800','text-slate-400','border-slate-600/50'); }
+        if (b) { b.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
       });
       if (btnId) {
         const b = document.getElementById(btnId);
-        if (b) { b.classList.add('bg-indigo-500/20','text-indigo-400','border-indigo-500/50'); b.classList.remove('bg-slate-800','text-slate-400','border-slate-600/50'); }
+        if (b) { b.classList.add('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'); b.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
       }
       await ctrl({ fan_mode: m });
     }
 
-    async function setFanSpeed(pwm) {
-      await ctrl({ fan_speed: pwm });
+    async function setFanLevel(percent, pwm, btnId) {
+      const fanLvls = ['btn-fan-lvl-40', 'btn-fan-lvl-60', 'btn-fan-lvl-80', 'btn-fan-lvl-100'];
+      fanLvls.forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+      });
+      if (btnId) {
+        const b = document.getElementById(btnId);
+        if (b) { b.classList.add('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'); b.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+      }
+      document.getElementById('btn-fan-0')?.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+      document.getElementById('btn-fan-1')?.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+      document.getElementById('btn-fan-2')?.classList.add('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+
+      document.getElementById('fan-speed').textContent = percent;
+      document.getElementById('fan-bar').style.width = percent + '%';
+      document.getElementById('fan-pwm').textContent = pwm;
+      if (document.getElementById('fan-level-hint')) {
+        document.getElementById('fan-level-hint').textContent = `${percent}% (PWM ${pwm})`;
+      }
+      updateBadge('fan-badge', 'MANUAL', 'bg-purple-500/10 text-purple-400 border-purple-500/30');
+
+      await ctrl({ fan_speed: pwm }, btnId);
     }
 
     async function setPump(m, btnId) {
       // Cập nhật UI bơm ngay lập tức
       const pumpEl = document.getElementById('pump-state');
       if (pumpEl) {
-        if (m === 'on')   { pumpEl.textContent = 'BẬT'; pumpEl.className = 'text-2xl font-bold text-emerald-400'; }
-        else if (m === 'off')  { pumpEl.textContent = 'TẮT'; pumpEl.className = 'text-2xl font-bold text-slate-500'; }
+        if (m === 'on') { pumpEl.textContent = 'BẬT'; pumpEl.className = 'text-2xl font-bold text-emerald-400'; }
+        else if (m === 'off') { pumpEl.textContent = 'TẮT'; pumpEl.className = 'text-2xl font-bold text-slate-500'; }
         else if (m === 'auto') { pumpEl.textContent = 'AUTO'; pumpEl.className = 'text-2xl font-bold text-indigo-400'; }
       }
       const pumpMode = document.getElementById('pump-mode');
@@ -867,8 +1662,8 @@
       // Optimistic UI
       const mistEl = document.getElementById('mist-state');
       if (mistEl) {
-        if (m === 'on')   { mistEl.textContent = 'BẬT'; mistEl.className = 'text-2xl font-bold text-teal-400'; }
-        else if (m === 'off')  { mistEl.textContent = 'TẮT'; mistEl.className = 'text-2xl font-bold text-slate-500'; }
+        if (m === 'on') { mistEl.textContent = 'BẬT'; mistEl.className = 'text-2xl font-bold text-teal-400'; }
+        else if (m === 'off') { mistEl.textContent = 'TẮT'; mistEl.className = 'text-2xl font-bold text-slate-500'; }
         else if (m === 'auto') { mistEl.textContent = 'AUTO'; mistEl.className = 'text-2xl font-bold text-teal-400'; }
       }
       document.getElementById('mist-mode').textContent = m === 'auto' ? 'AUTO' : 'TAY';
@@ -879,8 +1674,8 @@
       // Optimistic UI
       const lampEl = document.getElementById('lamp-state');
       if (lampEl) {
-        if (m === 'on')   { lampEl.textContent = 'BẬT'; lampEl.className = 'text-2xl font-bold text-yellow-400'; }
-        else if (m === 'off')  { lampEl.textContent = 'TẮT'; lampEl.className = 'text-2xl font-bold text-slate-500'; }
+        if (m === 'on') { lampEl.textContent = 'BẬT'; lampEl.className = 'text-2xl font-bold text-yellow-400'; }
+        else if (m === 'off') { lampEl.textContent = 'TẮT'; lampEl.className = 'text-2xl font-bold text-slate-500'; }
         else if (m === 'auto') { lampEl.textContent = 'AUTO'; lampEl.className = 'text-2xl font-bold text-yellow-400'; }
       }
       document.getElementById('lamp-mode').textContent = m === 'auto' ? 'AUTO' : 'TAY';
@@ -889,9 +1684,137 @@
 
 
     async function setHeater(m, btnId) {
+      const heaterBtns = ['btn-heater-auto', 'btn-heater-off'];
+      heaterBtns.forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+      });
+      if (btnId) {
+        const b = document.getElementById(btnId);
+        if (b) { b.classList.add('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'); b.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+      }
+      const heaterEl = document.getElementById('heater-state');
+      if (heaterEl) {
+        if (m === 'off') {
+          heaterEl.textContent = 'TẮT'; heaterEl.className = 'font-bold text-slate-500';
+          if (document.getElementById('heater-bar')) document.getElementById('heater-bar').style.width = '0%';
+          if (document.getElementById('heater-power')) document.getElementById('heater-power').textContent = '0';
+          if (document.getElementById('heater-pwm')) document.getElementById('heater-pwm').textContent = '0';
+          updateBadge('heater-badge', 'OFF', 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+          if (document.getElementById('heater-level-hint')) document.getElementById('heater-level-hint').textContent = 'Đang TẮT (0%)';
+          const hLvls = ['btn-heater-lvl-25', 'btn-heater-lvl-50', 'btn-heater-lvl-75', 'btn-heater-lvl-100'];
+          hLvls.forEach(id => {
+            const b = document.getElementById(id);
+            if (b) { b.classList.remove('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+          });
+        }
+        document.getElementById('heater-mode').textContent = m === 'auto' ? 'AUTO' : 'TAY';
+      }
       await ctrl({ heater: m }, btnId);
     }
+
+    async function setHeaterLevel(percent, pwm, btnId) {
+      const hLvls = ['btn-heater-lvl-40', 'btn-heater-lvl-60', 'btn-heater-lvl-80', 'btn-heater-lvl-100'];
+      hLvls.forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.classList.remove('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+      });
+      if (btnId) {
+        const b = document.getElementById(btnId);
+        if (b) { b.classList.add('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50'); b.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+      }
+      document.getElementById('btn-heater-auto')?.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+      document.getElementById('btn-heater-off')?.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+
+      const heaterEl = document.getElementById('heater-state');
+      if (heaterEl) {
+        heaterEl.textContent = `BẬT (${percent}%)`;
+        heaterEl.className = 'font-bold text-orange-400';
+      }
+      if (document.getElementById('heater-bar')) document.getElementById('heater-bar').style.width = percent + '%';
+      if (document.getElementById('heater-power')) document.getElementById('heater-power').textContent = percent;
+      if (document.getElementById('heater-pwm')) document.getElementById('heater-pwm').textContent = pwm;
+      if (document.getElementById('heater-mode')) document.getElementById('heater-mode').textContent = 'TAY';
+      if (document.getElementById('heater-level-hint')) document.getElementById('heater-level-hint').textContent = `${percent}% (PWM ${pwm})`;
+      updateBadge('heater-badge', 'ON', 'bg-red-500/10 text-red-400 border-red-500/30');
+
+      await ctrl({ heater_speed: pwm }, btnId);
+    }
+
+    let isDraggingRoofSlider = false;
+
+    function onRoofSliderInput(val) {
+      isDraggingRoofSlider = true;
+      const angle = parseInt(val);
+      const percent = Math.round((angle / 180) * 100);
+      document.getElementById('roof-slider-val').textContent = angle;
+      document.getElementById('roof-slider-percent').textContent = percent;
+      document.getElementById('roof-angle-val').textContent = angle;
+      document.getElementById('roof-percent').textContent = percent;
+      document.getElementById('roof-bar').style.width = percent + '%';
+      const isOpen = (angle > 0);
+      const roofEl = document.getElementById('roof-state');
+      if (roofEl) {
+        roofEl.textContent = angle === 0 ? 'ĐÓNG' : (angle === 180 ? 'MỞ' : 'MỞ ' + angle + '°');
+        roofEl.className = `font-bold ${isOpen ? 'text-cyan-400' : 'text-slate-400'}`;
+      }
+      updateBadge('roof-badge', isOpen ? 'MỞ' : 'ĐÓNG', isOpen ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+    }
+
+    async function onRoofSliderChange(val) {
+      isDraggingRoofSlider = false;
+      const angle = parseInt(val);
+      document.getElementById('roof-mode').textContent = 'TAY';
+      document.getElementById('btn-roof-auto')?.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+      if (angle === 0) {
+        document.getElementById('btn-roof-close')?.classList.add('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+        document.getElementById('btn-roof-open')?.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+      } else if (angle === 180) {
+        document.getElementById('btn-roof-open')?.classList.add('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+        document.getElementById('btn-roof-close')?.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+      } else {
+        document.getElementById('btn-roof-open')?.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+        document.getElementById('btn-roof-close')?.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+      }
+      await ctrl({ roof_angle: angle });
+    }
+
     async function setRoof(m, btnId) {
+      const roofBtns = ['btn-roof-auto', 'btn-roof-open', 'btn-roof-close'];
+      roofBtns.forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+      });
+      if (btnId) {
+        const b = document.getElementById(btnId);
+        if (b) { b.classList.add('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'); b.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+      }
+      const roofEl = document.getElementById('roof-state');
+      if (roofEl) {
+        if (m === 'open') {
+          roofEl.textContent = 'MỞ'; roofEl.className = 'font-bold text-cyan-400';
+          if (document.getElementById('roof-bar')) document.getElementById('roof-bar').style.width = '100%';
+          if (document.getElementById('roof-percent')) document.getElementById('roof-percent').textContent = '100';
+          if (document.getElementById('roof-angle-val')) document.getElementById('roof-angle-val').textContent = '180';
+          if (document.getElementById('roof-slider')) document.getElementById('roof-slider').value = 180;
+          if (document.getElementById('roof-slider-val')) document.getElementById('roof-slider-val').textContent = '180';
+          if (document.getElementById('roof-slider-percent')) document.getElementById('roof-slider-percent').textContent = '100';
+          updateBadge('roof-badge', 'MỞ', 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30');
+          document.getElementById('roof-mode').textContent = 'TAY';
+        } else if (m === 'close') {
+          roofEl.textContent = 'ĐÓNG'; roofEl.className = 'font-bold text-slate-500';
+          if (document.getElementById('roof-bar')) document.getElementById('roof-bar').style.width = '0%';
+          if (document.getElementById('roof-percent')) document.getElementById('roof-percent').textContent = '0';
+          if (document.getElementById('roof-angle-val')) document.getElementById('roof-angle-val').textContent = '0';
+          if (document.getElementById('roof-slider')) document.getElementById('roof-slider').value = 0;
+          if (document.getElementById('roof-slider-val')) document.getElementById('roof-slider-val').textContent = '0';
+          if (document.getElementById('roof-slider-percent')) document.getElementById('roof-slider-percent').textContent = '0';
+          updateBadge('roof-badge', 'ĐÓNG', 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+          document.getElementById('roof-mode').textContent = 'TAY';
+        } else if (m === 'auto') {
+          document.getElementById('roof-mode').textContent = 'AUTO';
+        }
+      }
       await ctrl({ roof: m }, btnId);
     }
     async function setValve(v, m, btnId) {
@@ -909,9 +1832,11 @@
         const th = document.getElementById('cfg-light-th').value;
         await ctrl({ light_thresh: th });
       } else {
-        const on  = document.getElementById('cfg-p-on').value;
-        const off = document.getElementById('cfg-p-off').value;
-        await ctrl({ pump_on: on, pump_off: off });
+        const onEl = document.getElementById('cfg-p-on');
+        const offEl = document.getElementById('cfg-p-off');
+        if (onEl && offEl) {
+          await ctrl({ pump_on: onEl.value, pump_off: offEl.value });
+        }
       }
       alert('Đã lưu cấu hình!');
     }
