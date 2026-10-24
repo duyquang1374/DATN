@@ -16,7 +16,7 @@ void initFan() {
   ledcAttach(FAN_PIN, FAN_PWM_FREQ, FAN_PWM_RES);
   ledcWrite(FAN_PIN, 0);
 
-  fanPID.SetOutputLimits(0, FAN_PWM_MAX);
+  fanPID.SetOutputLimits(FAN_PWM_MIN, FAN_PWM_MAX);
   fanPID.SetSampleTime(SENSOR_INTERVAL);
   fanPID.SetMode(AUTOMATIC);
 
@@ -48,34 +48,54 @@ void updateFan() {
 
   pidInput = (double)g_temperature;
   pidSetpoint = (double)g_fanSetpoint;
-  if (g_temperature <= (g_fanSetpoint - FAN_DEADBAND)) {
-    fanPID.SetMode(MANUAL);
-    pidOutput = 0;
-    setFanPWM(0);
-    fanPID.SetMode(AUTOMATIC);
-  } else {
-    fanPID.Compute();
-    int pwm = (int)pidOutput;
-    if (pwm > 0 && pwm < FAN_PWM_MIN)
-      pwm = FAN_PWM_MIN;
-    setFanPWM(pwm);
+
+  // Điều kiện nhiệt độ ngoài trời: Ngoài trời mát khi T_ngoài <= (Setpoint + 0.5 độ C)
+  // Nếu cảm biến ngoài trời lỗi hoặc chưa có dữ liệu, mặc định coi như mát để ưu tiên ngưỡng phòng
+  bool isOutsideCool = (!g_sht30ExtOK || isnan(g_tempExt)) ? true : (g_tempExt <= (g_fanSetpoint + 0.5));
+
+  // 1. Khi quạt đang TẮT:
+  if (!g_fanRunning) {
+    // Bật quạt khi nhiệt độ phòng chạm ngưỡng Setpoint
+    // HOẶC khi ngoài trời đang nóng (T_ngoài > Setpoint + 0.5) cần duy trì thông gió tối thiểu
+    if (g_temperature >= g_fanSetpoint || !isOutsideCool) {
+      fanPID.SetMode(MANUAL);
+      pidOutput = FAN_PWM_MIN;
+      fanPID.SetMode(AUTOMATIC);
+      fanPID.Compute();
+      setFanPWM((int)pidOutput);
+    } else {
+      setFanPWM(0);
+    }
+  }
+  // 2. Khi quạt đang BẬT:
+  else {
+    // CHỈ TẮT QUẠT KHI: Ngoài trời mát (T_ngoài <= Setpoint + 0.5) VÀ phòng đã hạ nhiệt (T_trong <= Setpoint - DEADBAND)
+    if (isOutsideCool && g_temperature <= (g_fanSetpoint - FAN_DEADBAND)) {
+      fanPID.SetMode(MANUAL);
+      pidOutput = FAN_PWM_MIN;
+      fanPID.SetMode(AUTOMATIC);
+      setFanPWM(0);
+    } else {
+      // Ngoài trời nóng hoặc phòng chưa đủ mát: Tiếp tục duy trì chạy quạt (PID tự clamp FAN_PWM_MIN khi T < Setpoint)
+      fanPID.Compute();
+      setFanPWM((int)pidOutput);
+    }
   }
 }
 
 void setFanPWM(int pwm) {
   pwm = constrain(pwm, 0, FAN_PWM_MAX);
+
+  // Kick-start (Đề pa khởi động):
+  // Khi quạt bắt đầu chuyển từ tắt sang bật (0 -> >0), phát xung tối đa trong 300ms để thắng ma sát tĩnh
+  if (!g_fanRunning && pwm > 0) {
+    ledcWrite(FAN_PIN, FAN_KICKSTART_PWM);
+    delay(FAN_KICKSTART_MS);
+  }
+
   ledcWrite(FAN_PIN, pwm);
   g_fanPWM = pwm;
-  if (pwm == 0)
-    g_fanSpeed = 0;
-  else if (pwm <= 125)
-    g_fanSpeed = 40;
-  else if (pwm <= 180)
-    g_fanSpeed = 60;
-  else if (pwm <= 230)
-    g_fanSpeed = 80;
-  else
-    g_fanSpeed = 100;
+  g_fanSpeed = (pwm == 0) ? 0 : (int)round((pwm * 100.0) / 255.0);
   g_fanRunning = (pwm > 0);
 }
 
@@ -94,7 +114,10 @@ void setFanManualSpeed(int pwm) {
 void setFanSetpoint(float sp) {
   g_fanSetpoint = sp;
   pidSetpoint = sp;
-  heaterSetpoint = sp - 2.0;
+}
+
+void setHeaterSetpoint(float sp) {
+  heaterSetpoint = sp;
 }
 
 void cycleFanHMI() {
@@ -145,8 +168,9 @@ void updateHeater() {
   }
 
   pidInput = (double)g_temperature;
-  heaterSetpoint = (double)g_fanSetpoint -
-                   2.0; // Giữ khoảng cách 2 độ để không bị đụng độ với quạt
+  if (heaterSetpoint <= 0) {
+    heaterSetpoint = (double)g_fanSetpoint - 2.0;
+  }
 
   if (g_temperature >= heaterSetpoint) {
     heaterPID.SetMode(MANUAL);
@@ -156,8 +180,8 @@ void updateHeater() {
   } else {
     heaterPID.Compute();
     int pwm = (int)heaterPidOutput;
-    if (pwm > 0 && pwm < FAN_PWM_MIN)
-      pwm = FAN_PWM_MIN;
+    if (pwm > 0 && pwm < HEATER_PWM_MIN)
+      pwm = HEATER_PWM_MIN;
     setHeaterPWM(pwm);
   }
 }
@@ -214,14 +238,55 @@ void initMist() {
 void updateMist() {
   if (g_mistManual)
     return;
-  bool shouldRun = g_fanRunning;
-  if (shouldRun && !g_mistRunning)
-    setMistState(true);
-  else if (!shouldRun && g_mistRunning)
+  if (!g_sht30OK || isnan(g_humidity) || isnan(g_temperature)) {
     setMistState(false);
+    return;
+  }
+
+  if (!g_mistRunning) {
+    // 1. Khi đang TẮT:
+    // Bật làm mát cùng quạt nếu: quạt đang chạy VÀ nhiệt độ phòng chạm ngưỡng cài đặt
+    bool triggerCool = g_fanRunning && (g_temperature >= g_fanSetpoint);
+
+    // Bật cấp ẩm nếu: độ ẩm phòng thấp hơn ngưỡng cài đặt
+    bool triggerHumid = (g_humidity < g_mistHumidThresh);
+
+    if (triggerCool || triggerHumid) {
+      setMistState(true);
+      Serial.printf("[Mist] BAT tu dong: T=%.1f (SP=%.1f), H=%.1f (TH=%.1f) -> Ly do: %s\n",
+                    g_temperature, g_fanSetpoint, g_humidity, g_mistHumidThresh,
+                    triggerCool ? "Lam mat qua nhiet" : "Cap am");
+    }
+  } else {
+    // 2. Khi đang BẬT:
+    // Khóa thời gian chạy tối thiểu: bắt buộc chạy liên tục ít nhất 1 phút (60s)
+    unsigned long runDuration = millis() - g_mistStartTime;
+    if (runDuration < MIST_MIN_RUN_TIME_MS) {
+      return; // Bắt buộc chạy liên tục đủ thời gian tối thiểu, không cho ngắt sớm
+    }
+
+    // Khi đã chạy đủ ít nhất 60s, kiểm tra điều kiện duy trì:
+    // - Vẫn cần làm mát nếu: Quạt vẫn chạy VÀ nhiệt độ phòng chưa hạ xuống dưới (Setpoint - 0.5 độ C)
+    bool stillCooling = g_fanRunning && (g_temperature > (g_fanSetpoint - MIST_TEMP_HYSTERESIS));
+
+    // - Vẫn cần cấp ẩm nếu: Độ ẩm phòng chưa đạt (Ngưỡng ẩm + 5%)
+    bool stillHumidifying = (g_humidity < (g_mistHumidThresh + MIST_HUMID_HYSTERESIS));
+
+    // Nếu nhiệt độ đã hạ <= (Setpoint - 0.5) VÀ độ ẩm đã đủ >= (Ngưỡng + 5%) -> Cho phép ngắt
+    if (!stillCooling && !stillHumidifying) {
+      setMistState(false);
+      Serial.printf("[Mist] TAT tu dong: T=%.1f (da ha <= %.1f), H=%.1f (da dat >= %.1f), Chay tong cong %lu giay\n",
+                    g_temperature, g_fanSetpoint - MIST_TEMP_HYSTERESIS,
+                    g_humidity, g_mistHumidThresh + MIST_HUMID_HYSTERESIS,
+                    runDuration / 1000);
+    }
+  }
 }
 
 void setMistState(bool on) {
+  if (on && !g_mistRunning) {
+    g_mistStartTime = millis();
+  }
   digitalWrite(MIST_PIN, on ? (MIST_ACTIVE_HIGH ? HIGH : LOW)
                             : (MIST_ACTIVE_HIGH ? LOW : HIGH));
   g_mistRunning = on;

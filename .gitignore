@@ -24,3 +24,6 @@ AI/model/plots/
 # OS
 .DS_Store
 Thumbs.db
+
+# Agent config
+.agents/

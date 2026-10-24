@@ -100,14 +100,19 @@ void handleApiStatus() {
 
   doc["mist_running"] = g_mistRunning;
   doc["mist_manual"] = g_mistManual;
+  doc["mist_thresh"] = g_mistHumidThresh;
 
   doc["light_running"] = g_lightRunning;
   doc["light_manual"] = g_lightManual;
   doc["light_thresh"] = g_lightThresh;
 
+  doc["pump_on"] = g_pumpOnThresh;
+  doc["pump_off"] = g_pumpOffThresh;
+
   doc["heater_running"] = g_heaterRunning;
   doc["heater_manual"] = g_heaterManual;
   doc["heater_pwm"] = g_heaterPWM;
+  doc["heater_setpoint"] = g_heaterSetpoint;
 
   doc["valve1_running"] = g_v1_run;
   doc["valve2_running"] = g_v2_run;
@@ -250,6 +255,7 @@ void handleApiControl() {
       if (webServer.hasArg("name"))
         g_v2_name = webServer.arg("name");
     }
+    saveGatewayConfig();
   }
 
   // -- Dừng khẩn cấp --
@@ -302,16 +308,24 @@ void handleApiControl() {
     loraDoc["mode"] = 1; // AUTO
     loraDoc["setpoint"] = webServer.arg("setpoint").toFloat();
     hasCmd = true;
+    g_fanMode = 1;
+    g_fanSetpoint = webServer.arg("setpoint").toFloat();
+    saveGatewayConfig();
   }
 
   // -- Cấu hình ngưỡng bơm --
   if (webServer.hasArg("pump_on") || webServer.hasArg("pump_off")) {
     loraDoc["cmd"] = "config";
-    if (webServer.hasArg("pump_on"))
+    if (webServer.hasArg("pump_on")) {
       loraDoc["pump_on"] = webServer.arg("pump_on").toFloat();
-    if (webServer.hasArg("pump_off"))
+      g_pumpOnThresh = loraDoc["pump_on"];
+    }
+    if (webServer.hasArg("pump_off")) {
       loraDoc["pump_off"] = webServer.arg("pump_off").toFloat();
+      g_pumpOffThresh = loraDoc["pump_off"];
+    }
     hasCmd = true;
+    saveGatewayConfig();
   }
 
   // -- Ngưỡng đèn --
@@ -319,6 +333,17 @@ void handleApiControl() {
     loraDoc["cmd"] = "config";
     loraDoc["light_th"] = webServer.arg("light_thresh").toFloat();
     hasCmd = true;
+    g_lightThresh = webServer.arg("light_thresh").toFloat();
+    saveGatewayConfig();
+  }
+
+  // -- Ngưỡng phun sương cấp ẩm --
+  if (webServer.hasArg("mist_thresh")) {
+    loraDoc["cmd"] = "config";
+    loraDoc["mist_th"] = webServer.arg("mist_thresh").toFloat();
+    hasCmd = true;
+    g_mistHumidThresh = webServer.arg("mist_thresh").toFloat();
+    saveGatewayConfig();
   }
 
   // -- Phun sương --
@@ -368,6 +393,13 @@ void handleApiControl() {
   if (webServer.hasArg("heater_speed")) {
     loraDoc["cmd"] = "heater";
     loraDoc["speed"] = constrain(webServer.arg("heater_speed").toInt(), 0, 255);
+    hasCmd = true;
+  }
+  if (webServer.hasArg("heater_setpoint")) {
+    g_heaterSetpoint = webServer.arg("heater_setpoint").toFloat();
+    saveGatewayConfig();
+    loraDoc["cmd"] = "heater_cfg";
+    loraDoc["setpoint"] = g_heaterSetpoint;
     hasCmd = true;
   }
 

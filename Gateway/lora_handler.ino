@@ -102,17 +102,53 @@ void checkLoRaMessage() {
                 g_valve1Running = g_v1_run;
                 g_valve2Running = g_v2_run;
 
+                bool cfgChanged = false;
                 if (doc.containsKey("fan_mode")) g_fanMode       = doc["fan_mode"] | 1;
                 if (doc.containsKey("fan_speed"))g_fanSpeed      = doc["fan_speed"]| 0;
                 if (doc.containsKey("fan_pwm"))  g_fanPWM        = doc["fan_pwm"]  | 0;
-                if (doc.containsKey("fan_sp"))   g_fanSetpoint   = doc["fan_sp"]   | 30.0f;
+                if (doc.containsKey("fan_sp")) {
+                  float sp = doc["fan_sp"];
+                  if (g_fanSetpoint != sp) { g_fanSetpoint = sp; cfgChanged = true; }
+                }
 
                 if (doc.containsKey("mist"))     g_mistRunning   = doc["mist"]     | false;
                 if (doc.containsKey("mist_m"))   g_mistManual    = doc["mist_m"]   | false;
+                if (doc.containsKey("mist_th")) {
+                  float mth = doc["mist_th"];
+                  if (g_mistHumidThresh != mth) { g_mistHumidThresh = mth; cfgChanged = true; }
+                }
 
                 if (doc.containsKey("light"))    g_lightRunning  = doc["light"]    | false;
                 if (doc.containsKey("light_m"))  g_lightManual   = doc["light_m"]  | false;
-                if (doc.containsKey("light_th")) g_lightThresh   = doc["light_th"] | 1000.0f;
+                if (doc.containsKey("light_th")) {
+                  float lth = doc["light_th"];
+                  if (g_lightThresh != lth) { g_lightThresh = lth; cfgChanged = true; }
+                }
+
+                if (doc.containsKey("v1_dry")) {
+                  float vd = doc["v1_dry"];
+                  if (g_v1_dry != vd) { g_v1_dry = vd; cfgChanged = true; }
+                }
+                if (doc.containsKey("v1_wet")) {
+                  float vw = doc["v1_wet"];
+                  if (g_v1_wet != vw) { g_v1_wet = vw; cfgChanged = true; }
+                }
+                if (doc.containsKey("v2_dry")) {
+                  float vd2 = doc["v2_dry"];
+                  if (g_v2_dry != vd2) { g_v2_dry = vd2; cfgChanged = true; }
+                }
+                if (doc.containsKey("v2_wet")) {
+                  float vw2 = doc["v2_wet"];
+                  if (g_v2_wet != vw2) { g_v2_wet = vw2; cfgChanged = true; }
+                }
+                if (doc.containsKey("heater_sp")) {
+                  float hsp = doc["heater_sp"];
+                  if (g_heaterSetpoint != hsp) { g_heaterSetpoint = hsp; cfgChanged = true; }
+                }
+
+                if (cfgChanged) {
+                  saveGatewayConfig();
+                }
 
                 if (doc.containsKey("heater"))   g_heaterRunning = doc["heater"]   | false;
                 if (doc.containsKey("heater_m")) g_heaterManual  = doc["heater_m"] | false;
@@ -130,10 +166,22 @@ void checkLoRaMessage() {
                 Serial.printf("[LoRa] State Event OK: Mist=%d Light=%d Fan=%d Heater=%d Roof=%d\n",
                               g_mistRunning, g_lightRunning, g_fanSpeed, g_heaterPWM, g_roofAngle);
               } else {
-                Serial.printf("[LoRa] Status OK: T=%.1f H=%.1f L=%.0f Soil=%.1f Mist=%d Light=%d\n",
+                Serial.printf("[LoRa] Status OK: T=%.1f H=%.1f L=%.0f Soil=%.1f Mist=%d Light=%d FanSP=%.1f\n",
                               g_temperature, g_humidity, g_lightLux, g_soilMoisture,
-                              g_mistRunning, g_lightRunning);
+                              g_mistRunning, g_lightRunning, g_fanSetpoint);
               }
+            }
+            else if (type == "cfg") {
+              if (doc.containsKey("v1_dry"))  g_v1_dry  = doc["v1_dry"];
+              if (doc.containsKey("v1_wet"))  g_v1_wet  = doc["v1_wet"];
+              if (doc.containsKey("v1_to"))   g_v1_to   = doc["v1_to"];
+              if (doc.containsKey("v1_rest")) g_v1_rest = doc["v1_rest"];
+              if (doc.containsKey("v2_dry"))  g_v2_dry  = doc["v2_dry"];
+              if (doc.containsKey("v2_wet"))  g_v2_wet  = doc["v2_wet"];
+              if (doc.containsKey("v2_to"))   g_v2_to   = doc["v2_to"];
+              if (doc.containsKey("v2_rest")) g_v2_rest = doc["v2_rest"];
+              saveGatewayConfig();
+              Serial.println(F("[LoRa] Da dong bo va luu cau hinh van tu Master Node ✓"));
             }
             else if (type == "forecast") {
               JsonArray arrT = doc["temp"];

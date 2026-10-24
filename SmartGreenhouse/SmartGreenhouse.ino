@@ -65,6 +65,7 @@ float g_fanSetpoint = DEFAULT_FAN_SETPOINT;
 float g_pumpOnThresh = DEFAULT_PUMP_ON_THRESH;
 float g_pumpOffThresh = DEFAULT_PUMP_OFF_THRESH;
 float g_lightThresh = DEFAULT_LIGHT_THRESH;
+float g_mistHumidThresh = DEFAULT_MIST_HUMID_THRESH;
 
 // ─── CẤU HÌNH & TRẠNG THÁI HỆ THỐNG TƯỚI THÔNG MINH ──────────
 ValveConfig g_valves[NUM_VALVES] = {
@@ -129,6 +130,7 @@ bool g_fanRunning = false;
 
 bool g_mistRunning = false;
 bool g_mistManual = false;
+unsigned long g_mistStartTime = 0;
 
 bool g_lightRunning = false;
 bool g_lightManual = false;
@@ -350,13 +352,21 @@ void loadConfig() {
     DeserializationError error = deserializeJson(doc, f);
     if (!error) {
       if (doc.containsKey("fan_sp"))
-        g_fanSetpoint = doc["fan_sp"];
+        setFanSetpoint(doc["fan_sp"]);
+      if (doc.containsKey("heater_sp"))
+        setHeaterSetpoint(doc["heater_sp"]);
+      else
+        setHeaterSetpoint(g_fanSetpoint - 2.0);
       if (doc.containsKey("pump_on"))
         g_pumpOnThresh = doc["pump_on"];
       if (doc.containsKey("pump_off"))
         g_pumpOffThresh = doc["pump_off"];
       if (doc.containsKey("light_th"))
         g_lightThresh = doc["light_th"];
+      if (doc.containsKey("mist_th"))
+        g_mistHumidThresh = doc["mist_th"];
+      Serial.printf("[FS] Da load cau hinh tu Flash: FanSP=%.1f HeaterSP=%.1f MistTH=%.0f LightTH=%.0f\n",
+                    g_fanSetpoint, (float)heaterSetpoint, g_mistHumidThresh, g_lightThresh);
     }
     f.close();
   }
@@ -367,9 +377,11 @@ void saveConfig() {
   if (f) {
     StaticJsonDocument<256> doc;
     doc["fan_sp"] = g_fanSetpoint;
+    doc["heater_sp"] = heaterSetpoint;
     doc["pump_on"] = g_pumpOnThresh;
     doc["pump_off"] = g_pumpOffThresh;
     doc["light_th"] = g_lightThresh;
+    doc["mist_th"] = g_mistHumidThresh;
     serializeJson(doc, f);
     f.close();
   }

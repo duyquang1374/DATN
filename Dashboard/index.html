@@ -197,7 +197,10 @@
               class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-500"
               style="width: 0%"></div>
           </div>
-          <div class="text-[10px] text-slate-500 text-right mb-5 font-mono">PWM: <span id="fan-pwm">--</span>/255</div>
+          <div class="flex justify-between items-center text-[10px] text-slate-400 font-medium mb-5">
+            <span class="text-amber-400 flex items-center gap-0.5">◀ Bật: &ge; <span id="fan-thresh-display">--</span>°C</span>
+            <span class="text-slate-500 font-mono">PWM: <span id="fan-pwm">--</span>/255</span>
+          </div>
 
           <!-- Mode Buttons -->
           <div class="grid grid-cols-3 gap-2 mb-4">
@@ -239,7 +242,8 @@
               <label class="block text-[11px] uppercase tracking-wider font-medium text-slate-500 mb-1.5">Ngưỡng bật
                 quạt (°C)</label>
               <input type="number" step="0.5" id="cfg-fan"
-                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner">
+                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all shadow-inner"
+                onkeydown="if(event.key==='Enter') saveConfig('fan')">
             </div>
             <button onclick="saveConfig('fan')"
               class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/20 hover:text-indigo-300 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm">Lưu</button>
@@ -271,38 +275,51 @@
               class="bg-gradient-to-r from-red-500 to-orange-500 h-full rounded-full transition-all duration-500"
               style="width: 0%"></div>
           </div>
-          <div class="text-[10px] text-slate-500 text-right mb-3 font-mono">PWM: <span id="heater-pwm">0</span>/255 |
-            Trạng thái: <span id="heater-state" class="font-bold text-slate-400">TẮT</span> (<span
-              id="heater-mode">AUTO</span>)</div>
+          <div class="flex justify-between items-center text-[10px] text-slate-400 font-medium mb-5">
+            <span class="text-amber-400 flex items-center gap-0.5">◀ Bật: &le; <span id="heater-thresh-display">--</span>°C</span>
+            <span class="font-mono text-slate-500">PWM: <span id="heater-pwm">0</span>/255</span>
+          </div>
 
-          <!-- Chế độ sưởi: AUTO & TẮT -->
-          <div class="grid grid-cols-2 gap-2 mb-3">
-            <button onclick="setHeater('auto','btn-heater-auto')" id="btn-heater-auto"
-              class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
-            <button onclick="setHeater('off','btn-heater-off')" id="btn-heater-off"
+          <!-- Mode Buttons: TẮT, AUTO, TAY -->
+          <div class="grid grid-cols-3 gap-2 mb-4">
+            <button onclick="setHeaterMode(0,'btn-heater-0')" id="btn-heater-0"
               class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
+            <button onclick="setHeaterMode(1,'btn-heater-1')" id="btn-heater-1"
+              class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">AUTO</button>
+            <button onclick="setHeaterMode(2,'btn-heater-2')" id="btn-heater-2"
+              class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TAY</button>
           </div>
 
           <!-- 4 mức công suất sưởi tay (40%, 60%, 80%, 100%) -->
-          <div class="p-3 bg-slate-900/50 rounded-xl border border-slate-700/30 mb-1">
+          <div id="heater-levels-wrap" class="hidden mb-4 p-3 bg-slate-900/50 rounded-xl border border-slate-700/30">
             <div class="text-[11px] text-slate-400 mb-2 font-medium flex justify-between">
               <span>4 mức công suất sưởi tay:</span>
               <span id="heater-level-hint" class="text-orange-400 font-mono">Tự động / Tắt</span>
             </div>
             <div class="grid grid-cols-4 gap-2">
               <button onclick="setHeaterLevel(40, 102, 'btn-heater-lvl-40')" id="btn-heater-lvl-40"
-                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
-                1</button>
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức 1</button>
               <button onclick="setHeaterLevel(60, 153, 'btn-heater-lvl-60')" id="btn-heater-lvl-60"
-                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
-                2</button>
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức 2</button>
               <button onclick="setHeaterLevel(80, 204, 'btn-heater-lvl-80')" id="btn-heater-lvl-80"
-                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
-                3</button>
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức 3</button>
               <button onclick="setHeaterLevel(100, 255, 'btn-heater-lvl-100')" id="btn-heater-lvl-100"
-                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức
-                4</button>
+                class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">Mức 4</button>
             </div>
+          </div>
+        </div>
+
+        <!-- Settings: Ngưỡng bật sưởi -->
+        <div class="mt-2 pt-4 border-t border-slate-700/50">
+          <div class="flex gap-3 items-end">
+            <div class="flex-1">
+              <label class="block text-[11px] uppercase tracking-wider font-medium text-slate-500 mb-1.5">Ngưỡng bật sưởi (°C)</label>
+              <input type="number" step="0.5" id="cfg-heater"
+                class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-inner"
+                onkeydown="if(event.key==='Enter') saveConfig('heater')">
+            </div>
+            <button onclick="saveConfig('heater')"
+              class="bg-orange-500/10 text-orange-400 border border-orange-500/30 hover:bg-orange-500/20 hover:text-orange-300 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm">Lưu</button>
           </div>
         </div>
       </div>
@@ -376,18 +393,6 @@
               mở</span>
             <span id="pump-open-count" class="text-base font-bold text-cyan-400 font-mono">0 / 2 van</span>
           </div>
-          <div>
-            <span class="text-slate-500 block uppercase tracking-wider text-[10px] font-semibold mb-1">Trình tự an
-              toàn</span>
-            <span class="text-slate-300 font-medium">Van ➔ Bơm (Trễ 1.5s)</span>
-          </div>
-          <div>
-            <span class="text-slate-500 block uppercase tracking-wider text-[10px] font-semibold mb-1">Bảo vệ nguồn
-              nước</span>
-            <span id="pump-water-status" class="text-emerald-400 font-semibold flex items-center gap-1">
-              <span>✓</span> Bình thường (Đủ nước)
-            </span>
-          </div>
         </div>
 
         <!-- Banner cảnh báo Dừng khẩn cấp -->
@@ -439,8 +444,8 @@
 
         <div class="text-center mb-4">
           <div id="mist-state" class="text-2xl font-bold text-slate-500">TẮT</div>
-          <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="mist-mode" class="font-semibold">AUTO</span>
-          </div>
+          <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="mist-mode" class="font-semibold">AUTO</span></div>
+          <div class="text-[10px] text-amber-400 font-medium mt-1.5 flex items-center justify-center gap-0.5">◀ Bật khi ẩm: &lt; <span id="mist-thresh-display">--</span>%</div>
         </div>
 
         <!-- Mode Buttons -->
@@ -452,7 +457,24 @@
           <button onclick="setMist('off','btn-mist-off')" id="btn-mist-off"
             class="py-2 rounded-xl border border-slate-600/50 bg-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-700 transition-colors shadow-sm">TẮT</button>
         </div>
-        <p class="text-[10px] text-slate-600 text-center">Tự động bật cùng quạt khi nhiệt độ vượt ngưỡng</p>
+        <p id="mist-hint" class="text-[10px] text-slate-500 text-center mb-3">Tự động cấp ẩm khi độ ẩm thấp hoặc làm mát
+          cùng quạt</p>
+
+        <!-- Settings: Ngưỡng cấp ẩm -->
+        <div class="mt-2 pt-3 border-t border-slate-700/50">
+          <div class="flex gap-2 items-end">
+            <div class="flex-1">
+              <label class="block text-[11px] uppercase tracking-wider font-medium text-slate-500 mb-1.5">Ngưỡng cấp ẩm
+                (%)</label>
+              <input type="number" id="cfg-mist-th" min="30" max="95" step="1"
+                class="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 font-mono transition-colors"
+                placeholder="65.0"
+                onkeydown="if(event.key==='Enter') saveConfig('mist')">
+            </div>
+            <button onclick="saveConfig('mist')"
+              class="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition-colors shadow-sm">Lưu</button>
+          </div>
+        </div>
       </div>
 
       <!-- Light Card -->
@@ -469,8 +491,8 @@
 
         <div class="text-center mb-4">
           <div id="lamp-state" class="text-2xl font-bold text-slate-500">TẮT</div>
-          <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="lamp-mode" class="font-semibold">AUTO</span>
-          </div>
+          <div class="text-xs text-slate-500 mt-1">Hoạt động: <span id="lamp-mode" class="font-semibold">AUTO</span></div>
+          <div class="text-[10px] text-amber-400 font-medium mt-1.5 flex items-center justify-center gap-0.5">◀ Bật khi sáng: &lt; <span id="light-thresh-display">--</span> lux</div>
         </div>
 
         <!-- Mode Buttons -->
@@ -490,7 +512,8 @@
               <label class="block text-[10px] uppercase tracking-wider font-medium text-slate-500 mb-1.5">Bật khi <
                   (lux)</label>
                   <input type="number" id="cfg-light-th"
-                    class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-sm text-white outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 transition-all shadow-inner text-center">
+                    class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2 py-2 text-sm text-white outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 transition-all shadow-inner text-center"
+                    onkeydown="if(event.key==='Enter') saveConfig('light')">
             </div>
             <button onclick="saveConfig('light')"
               class="bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 hover:text-yellow-300 px-3 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm">Lưu</button>
@@ -1216,6 +1239,9 @@
         document.getElementById('fan-bar').style.width = d.fan_speed + '%';
         document.getElementById('fan-pwm').textContent = d.fan_pwm;
         if (document.activeElement.id !== 'cfg-fan') document.getElementById('cfg-fan').value = d.fan_setpoint.toFixed(1);
+        if (d.fan_setpoint !== undefined && d.fan_setpoint !== null && document.getElementById('fan-thresh-display')) {
+          document.getElementById('fan-thresh-display').textContent = Number(d.fan_setpoint).toFixed(1);
+        }
 
         updateActiveBtn('fan', d.fan_mode, 3);
         const fmStr = d.fan_mode === 0 ? 'OFF' : d.fan_mode === 1 ? 'AUTO' : 'MANUAL';
@@ -1317,6 +1343,19 @@
         const mab = document.getElementById(mistActiveId);
         if (mab) { mab.classList.remove(...idleClass); mab.classList.add(...activeClass); }
 
+        if (d.mist_thresh !== undefined) {
+          if (document.activeElement.id !== 'cfg-mist-th') document.getElementById('cfg-mist-th').value = parseFloat(d.mist_thresh).toFixed(0);
+          if (document.getElementById('mist-thresh-display')) document.getElementById('mist-thresh-display').textContent = parseFloat(d.mist_thresh).toFixed(0);
+        }
+        const mistHint = document.getElementById('mist-hint');
+        if (mistHint) {
+          if (mr) {
+            mistHint.textContent = d.mist_manual ? 'Đang BẬT thủ công' : ((d.humidity && d.humidity < (d.mist_thresh || 65)) ? 'Đang phun sương cấp ẩm (Độ ẩm thấp)' : 'Đang phun sương làm mát cùng quạt');
+          } else {
+            mistHint.textContent = d.mist_manual ? 'Đang TẮT thủ công' : `Tự động cấp ẩm khi độ ẩm < ${d.mist_thresh || 65}% hoặc cùng quạt`;
+          }
+        }
+
         // ─── Light (Đèn) ────────────────────────────────────
         const lr = d.light_running;
         const lampEl = document.getElementById('lamp-state');
@@ -1335,6 +1374,11 @@
         const lab = document.getElementById(lampActiveId);
         if (lab) { lab.classList.remove(...idleClass); lab.classList.add(...activeClass); }
 
+        if (d.light_thresh !== undefined) {
+          if (document.activeElement.id !== 'cfg-light-th') document.getElementById('cfg-light-th').value = parseFloat(d.light_thresh).toFixed(0);
+          if (document.getElementById('light-thresh-display')) document.getElementById('light-thresh-display').textContent = parseFloat(d.light_thresh).toFixed(0);
+        }
+
 
         // --- Heater ---
         const hr = d.heater_running;
@@ -1344,24 +1388,35 @@
         const heaterEl = document.getElementById('heater-state');
         if (heaterEl) {
           heaterEl.textContent = hr ? (d.heater_manual ? `BẬT (${hPercent}%)` : 'BẬT') : 'TẮT';
-          heaterEl.className = `font-bold ${hr ? 'text-red-400' : 'text-slate-400'}`;
-          updateBadge('heater-badge', hr ? 'ON' : 'OFF', hr ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+          heaterEl.className = `font-bold ${hr ? 'text-orange-400' : 'text-slate-400'}`;
+          updateBadge('heater-badge', hr ? 'ON' : 'OFF', hr ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
           document.getElementById('heater-mode').textContent = d.heater_manual ? 'TAY' : 'AUTO';
           if (document.getElementById('heater-pwm')) document.getElementById('heater-pwm').textContent = hpwm;
           if (document.getElementById('heater-power')) document.getElementById('heater-power').textContent = hPercent;
           if (document.getElementById('heater-bar')) document.getElementById('heater-bar').style.width = `${hPercent}%`;
         }
 
-        // Highlight Heater Mode Buttons (AUTO, TẮT)
-        const heaterBtns = ['btn-heater-auto', 'btn-heater-off'];
+        if (d.heater_setpoint !== undefined && d.heater_setpoint !== null) {
+          if (document.getElementById('heater-thresh-display')) document.getElementById('heater-thresh-display').textContent = Number(d.heater_setpoint).toFixed(1);
+          if (document.activeElement.id !== 'cfg-heater') document.getElementById('cfg-heater').value = Number(d.heater_setpoint).toFixed(1);
+        }
+
+        // Highlight Heater Mode Buttons (0: TẮT, 1: AUTO, 2: TAY)
+        const hMode = !d.heater_manual ? 1 : (hr ? 2 : 0);
+        const heaterBtns = ['btn-heater-0', 'btn-heater-1', 'btn-heater-2'];
         heaterBtns.forEach(id => {
           const b = document.getElementById(id);
-          if (b) { b.classList.remove(...activeClass); b.classList.add(...idleClass); }
+          if (b) { b.classList.remove('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
         });
-        const heaterActiveId = !d.heater_manual ? 'btn-heater-auto' : (!hr ? 'btn-heater-off' : '');
-        if (heaterActiveId) {
-          const hab = document.getElementById(heaterActiveId);
-          if (hab) { hab.classList.remove(...idleClass); hab.classList.add(...activeClass); }
+        const activeHBtn = document.getElementById(`btn-heater-${hMode}`);
+        if (activeHBtn) {
+          activeHBtn.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600/50');
+          activeHBtn.classList.add('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50');
+        }
+
+        const heaterLevelsWrap = document.getElementById('heater-levels-wrap');
+        if (heaterLevelsWrap) {
+          heaterLevelsWrap.style.display = (hMode === 2) ? 'block' : 'none';
         }
 
         // Highlight Heater 4 Levels (40, 60, 80, 100%)
@@ -1683,34 +1738,46 @@
     }
 
 
-    async function setHeater(m, btnId) {
-      const heaterBtns = ['btn-heater-auto', 'btn-heater-off'];
-      heaterBtns.forEach(id => {
+    async function setHeaterMode(m, btnId) {
+      const wrap = document.getElementById('heater-levels-wrap');
+      if (wrap) {
+        wrap.style.display = (m === 2) ? 'block' : 'none';
+      }
+      const modes = ['btn-heater-0', 'btn-heater-1', 'btn-heater-2'];
+      modes.forEach(id => {
         const b = document.getElementById(id);
-        if (b) { b.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+        if (b) { b.classList.remove('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
       });
       if (btnId) {
         const b = document.getElementById(btnId);
-        if (b) { b.classList.add('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50'); b.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
+        if (b) { b.classList.add('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50'); b.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
       }
-      const heaterEl = document.getElementById('heater-state');
-      if (heaterEl) {
-        if (m === 'off') {
-          heaterEl.textContent = 'TẮT'; heaterEl.className = 'font-bold text-slate-500';
-          if (document.getElementById('heater-bar')) document.getElementById('heater-bar').style.width = '0%';
-          if (document.getElementById('heater-power')) document.getElementById('heater-power').textContent = '0';
-          if (document.getElementById('heater-pwm')) document.getElementById('heater-pwm').textContent = '0';
-          updateBadge('heater-badge', 'OFF', 'bg-slate-700/50 text-slate-500 border-slate-600/50');
-          if (document.getElementById('heater-level-hint')) document.getElementById('heater-level-hint').textContent = 'Đang TẮT (0%)';
-          const hLvls = ['btn-heater-lvl-25', 'btn-heater-lvl-50', 'btn-heater-lvl-75', 'btn-heater-lvl-100'];
-          hLvls.forEach(id => {
-            const b = document.getElementById(id);
-            if (b) { b.classList.remove('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50'); b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
-          });
+      if (m === 0) {
+        // TẮT
+        updateBadge('heater-badge', 'OFF', 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+        const heaterEl = document.getElementById('heater-state');
+        if (heaterEl) { heaterEl.textContent = 'TẮT'; heaterEl.className = 'font-bold text-slate-400'; }
+        if (document.getElementById('heater-bar')) document.getElementById('heater-bar').style.width = '0%';
+        if (document.getElementById('heater-power')) document.getElementById('heater-power').textContent = '0';
+        if (document.getElementById('heater-pwm')) document.getElementById('heater-pwm').textContent = '0';
+        if (document.getElementById('heater-mode')) document.getElementById('heater-mode').textContent = 'TAY';
+        await ctrl({ heater: 'off' });
+      } else if (m === 1) {
+        // AUTO
+        updateBadge('heater-badge', 'AUTO', 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
+        if (document.getElementById('heater-mode')) document.getElementById('heater-mode').textContent = 'AUTO';
+        await ctrl({ heater: 'auto' });
+      } else if (m === 2) {
+        // TAY
+        updateBadge('heater-badge', 'ON', 'bg-orange-500/10 text-orange-400 border-orange-500/30');
+        if (document.getElementById('heater-mode')) document.getElementById('heater-mode').textContent = 'TAY';
+        const curPower = parseInt(document.getElementById('heater-power')?.textContent || '0');
+        if (curPower === 0) {
+          await setHeaterLevel(40, 102, 'btn-heater-lvl-40');
+        } else {
+          await ctrl({ heater: 'on' });
         }
-        document.getElementById('heater-mode').textContent = m === 'auto' ? 'AUTO' : 'TAY';
       }
-      await ctrl({ heater: m }, btnId);
     }
 
     async function setHeaterLevel(percent, pwm, btnId) {
@@ -1723,8 +1790,9 @@
         const b = document.getElementById(btnId);
         if (b) { b.classList.add('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50'); b.classList.remove('bg-slate-800', 'text-slate-400', 'border-slate-600/50'); }
       }
-      document.getElementById('btn-heater-auto')?.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
-      document.getElementById('btn-heater-off')?.classList.remove('bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/50');
+      document.getElementById('btn-heater-0')?.classList.remove('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50');
+      document.getElementById('btn-heater-1')?.classList.remove('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50');
+      document.getElementById('btn-heater-2')?.classList.add('bg-orange-500/20', 'text-orange-400', 'border-orange-500/50');
 
       const heaterEl = document.getElementById('heater-state');
       if (heaterEl) {
@@ -1736,7 +1804,7 @@
       if (document.getElementById('heater-pwm')) document.getElementById('heater-pwm').textContent = pwm;
       if (document.getElementById('heater-mode')) document.getElementById('heater-mode').textContent = 'TAY';
       if (document.getElementById('heater-level-hint')) document.getElementById('heater-level-hint').textContent = `${percent}% (PWM ${pwm})`;
-      updateBadge('heater-badge', 'ON', 'bg-red-500/10 text-red-400 border-red-500/30');
+      updateBadge('heater-badge', 'ON', 'bg-orange-500/10 text-orange-400 border-orange-500/30');
 
       await ctrl({ heater_speed: pwm }, btnId);
     }
@@ -1827,10 +1895,28 @@
     async function saveConfig(type) {
       if (type === 'fan') {
         const sp = document.getElementById('cfg-fan').value;
+        if (sp && document.getElementById('fan-thresh-display')) {
+          document.getElementById('fan-thresh-display').textContent = parseFloat(sp).toFixed(1);
+        }
         await ctrl({ setpoint: sp });
+      } else if (type === 'heater') {
+        const sp = document.getElementById('cfg-heater').value;
+        if (sp && document.getElementById('heater-thresh-display')) {
+          document.getElementById('heater-thresh-display').textContent = parseFloat(sp).toFixed(1);
+        }
+        await ctrl({ heater_setpoint: sp });
       } else if (type === 'light') {
         const th = document.getElementById('cfg-light-th').value;
+        if (th && document.getElementById('light-thresh-display')) {
+          document.getElementById('light-thresh-display').textContent = th;
+        }
         await ctrl({ light_thresh: th });
+      } else if (type === 'mist') {
+        const th = document.getElementById('cfg-mist-th').value;
+        if (th && document.getElementById('mist-thresh-display')) {
+          document.getElementById('mist-thresh-display').textContent = th;
+        }
+        await ctrl({ mist_thresh: th });
       } else {
         const onEl = document.getElementById('cfg-p-on');
         const offEl = document.getElementById('cfg-p-off');

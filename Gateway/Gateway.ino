@@ -78,6 +78,7 @@ float g_fanSetpoint  = 30.0;
 
 bool  g_mistRunning  = false;
 bool  g_mistManual   = false;
+float g_mistHumidThresh = 65.0;
 
 bool  g_lightRunning = false;
 bool  g_lightManual  = false;
@@ -86,6 +87,7 @@ float g_lightThresh  = 1000.0;
 bool  g_heaterRunning = false;
 bool  g_heaterManual  = false;
 int   g_heaterPWM     = 0;
+float g_heaterSetpoint = 28.0;
 
 int   g_roofAngle     = 0;
 bool  g_roofManual    = false;

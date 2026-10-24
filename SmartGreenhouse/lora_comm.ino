@@ -55,7 +55,7 @@ void sendDataToGateway(bool force) {
 
   lastSend = millis();
 
-  StaticJsonDocument<512> doc;
+  StaticJsonDocument<768> doc;
   doc["type"] = "status";
   doc["temp"] = isnan(g_temperature) ? 0 : round(g_temperature * 10) / 10.0;
   doc["humid"] = isnan(g_humidity) ? 0 : round(g_humidity * 10) / 10.0;
@@ -79,24 +79,32 @@ void sendDataToGateway(bool force) {
   doc["v1_mode"] = g_valves[0].mode;
   doc["v1_time"] = g_valves[0].isRunning ? (millis() - g_valves[0].runStartTime) / 1000 : 0;
   doc["v1_err"] = g_valves[0].sensorError ? 1 : 0;
+  doc["v1_dry"] = g_valves[0].dryThresh;
+  doc["v1_wet"] = g_valves[0].wetThresh;
 
   // Van 2
   doc["v2_run"] = g_valves[1].isRunning ? 1 : 0;
   doc["v2_mode"] = g_valves[1].mode;
   doc["v2_time"] = g_valves[1].isRunning ? (millis() - g_valves[1].runStartTime) / 1000 : 0;
   doc["v2_err"] = g_valves[1].sensorError ? 1 : 0;
+  doc["v2_dry"] = g_valves[1].dryThresh;
+  doc["v2_wet"] = g_valves[1].wetThresh;
 
-  // Khối môi trường & chế độ thủ công / tự động
+  // Khối môi trường & chế độ thủ công / tự động kèm các ngưỡng cài đặt
   doc["fan_mode"] = g_fanMode;
   doc["fan_speed"] = g_fanSpeed;
   doc["fan_pwm"] = g_fanPWM;
+  doc["fan_sp"] = g_fanSetpoint;
   doc["mist"] = g_mistRunning ? 1 : 0;
   doc["mist_m"] = g_mistManual ? 1 : 0;
+  doc["mist_th"] = g_mistHumidThresh;
   doc["light"] = g_lightRunning ? 1 : 0;
   doc["light_m"] = g_lightManual ? 1 : 0;
+  doc["light_th"] = g_lightThresh;
   doc["heater"] = g_heaterRunning ? 1 : 0;
   doc["heater_m"] = g_heaterManual ? 1 : 0;
   doc["heater_pwm"] = g_heaterPWM;
+  doc["heater_sp"] = heaterSetpoint;
   doc["roof"] = g_roofAngle;
   doc["roof_m"] = g_roofManual ? 1 : 0;
 
@@ -105,7 +113,7 @@ void sendDataToGateway(bool force) {
   doc["b_ok"] = g_bh1750OK ? 1 : 0;
   doc["uptime"] = millis() / 1000;
 
-  char buf[512];
+  char buf[768];
   size_t len = serializeJson(doc, buf);
   buf[len] = '\n';
   buf[len + 1] = '\0';
@@ -261,14 +269,22 @@ void checkLoRaCommand() {
                 setFanMode((int)doc["mode"]);
               if (doc.containsKey("speed") && g_fanMode == FAN_MODE_MANUAL)
                 setFanManualSpeed((int)doc["speed"]);
-              if (doc.containsKey("setpoint") && g_fanMode == FAN_MODE_AUTO)
+              if (doc.containsKey("setpoint")) {
                 setFanSetpoint(doc["setpoint"]);
-              Serial.printf("[LoRa RX] Quat -> Mode=%d, Speed=%d\n", g_fanMode, g_fanSpeed);
+                saveConfig();
+              }
+              Serial.printf("[LoRa RX] Quat -> Mode=%d, Speed=%d, Setpoint=%.1f\n", g_fanMode, g_fanSpeed, g_fanSetpoint);
             } else if (cmd == "config") {
               if (doc.containsKey("fan_sp"))
                 setFanSetpoint(doc["fan_sp"]);
               if (doc.containsKey("light_th"))
                 g_lightThresh = doc["light_th"];
+              if (doc.containsKey("mist_th"))
+                g_mistHumidThresh = doc["mist_th"];
+              if (doc.containsKey("pump_on"))
+                g_pumpOnThresh = doc["pump_on"];
+              if (doc.containsKey("pump_off"))
+                g_pumpOffThresh = doc["pump_off"];
               saveConfig();
               Serial.println(F("[LoRa RX] Luu cau hinh nguong"));
             }
@@ -311,6 +327,12 @@ void checkLoRaCommand() {
               if (doc.containsKey("speed")) {
                 setHeaterManualSpeed(doc["speed"]);
                 Serial.printf("[LoRa RX] Suoi am -> Muc PWM %d\n", g_heaterPWM);
+              }
+            } else if (cmd == "heater_cfg") {
+              if (doc.containsKey("setpoint")) {
+                setHeaterSetpoint(doc["setpoint"]);
+                saveConfig();
+                Serial.printf("[LoRa RX] Suoi am -> Setpoint=%.1f\n", heaterSetpoint);
               }
             }
 

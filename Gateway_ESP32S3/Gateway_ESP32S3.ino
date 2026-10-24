@@ -144,10 +144,11 @@ bool g_valveManual = false;
 int g_fanMode = 1;
 int g_fanSpeed = 0;
 int g_fanPWM = 0;
-float g_fanSetpoint = 30.0;
+float g_fanSetpoint = 30.5;
 
 bool g_mistRunning = false;
 bool g_mistManual = false;
+float g_mistHumidThresh = 65.0;
 
 bool g_lightRunning = false;
 bool g_lightManual = false;
@@ -156,6 +157,7 @@ float g_lightThresh = 1000.0;
 bool g_heaterRunning = false;
 bool g_heaterManual = false;
 int g_heaterPWM = 0;
+float g_heaterSetpoint = 28.0;
 
 int g_roofAngle = 0;
 bool g_roofManual = false;
@@ -411,6 +413,73 @@ void publishMQTT() {
   mqttClient.publish(MQTT_TOPIC_SENSOR, buf);
 }
 
+void loadGatewayConfig() {
+  if (LittleFS.exists("/config.json")) {
+    File f = LittleFS.open("/config.json", "r");
+    if (f) {
+      StaticJsonDocument<512> doc;
+      DeserializationError err = deserializeJson(doc, f);
+      if (!err) {
+        if (doc.containsKey("fan_sp"))
+          g_fanSetpoint = doc["fan_sp"];
+        if (doc.containsKey("heater_sp"))
+          g_heaterSetpoint = doc["heater_sp"];
+        if (doc.containsKey("mist_th"))
+          g_mistHumidThresh = doc["mist_th"];
+        if (doc.containsKey("light_th"))
+          g_lightThresh = doc["light_th"];
+        if (doc.containsKey("pump_on"))
+          g_pumpOnThresh = doc["pump_on"];
+        if (doc.containsKey("pump_off"))
+          g_pumpOffThresh = doc["pump_off"];
+        if (doc.containsKey("v1_dry"))
+          g_v1_dry = doc["v1_dry"];
+        if (doc.containsKey("v1_wet"))
+          g_v1_wet = doc["v1_wet"];
+        if (doc.containsKey("v1_to"))
+          g_v1_to = doc["v1_to"];
+        if (doc.containsKey("v1_rest"))
+          g_v1_rest = doc["v1_rest"];
+        if (doc.containsKey("v2_dry"))
+          g_v2_dry = doc["v2_dry"];
+        if (doc.containsKey("v2_wet"))
+          g_v2_wet = doc["v2_wet"];
+        if (doc.containsKey("v2_to"))
+          g_v2_to = doc["v2_to"];
+        if (doc.containsKey("v2_rest"))
+          g_v2_rest = doc["v2_rest"];
+        Serial.printf("[FS] Gateway da load cau hinh Flash: FanSP=%.1f MistTH=%.0f LightTH=%.0f V1Dry=%.0f V2Dry=%.0f\n",
+                      g_fanSetpoint, g_mistHumidThresh, g_lightThresh, g_v1_dry, g_v2_dry);
+      }
+      f.close();
+    }
+  }
+}
+
+void saveGatewayConfig() {
+  File f = LittleFS.open("/config.json", "w");
+  if (f) {
+    StaticJsonDocument<512> doc;
+    doc["fan_sp"] = g_fanSetpoint;
+    doc["heater_sp"] = g_heaterSetpoint;
+    doc["mist_th"] = g_mistHumidThresh;
+    doc["light_th"] = g_lightThresh;
+    doc["pump_on"] = g_pumpOnThresh;
+    doc["pump_off"] = g_pumpOffThresh;
+    doc["v1_dry"] = g_v1_dry;
+    doc["v1_wet"] = g_v1_wet;
+    doc["v1_to"] = g_v1_to;
+    doc["v1_rest"] = g_v1_rest;
+    doc["v2_dry"] = g_v2_dry;
+    doc["v2_wet"] = g_v2_wet;
+    doc["v2_to"] = g_v2_to;
+    doc["v2_rest"] = g_v2_rest;
+    serializeJson(doc, f);
+    f.close();
+    Serial.println(F("[FS] Gateway da luu tat ca cau hinh nguong vao Flash (/config.json)"));
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  PHẦN 2: LƯU TRỮ DỮ LIỆU NHẬT KÝ (DATA LOGGER LITTLEFS)
 // ═══════════════════════════════════════════════════════════════
@@ -419,6 +488,9 @@ void initDataLogger() {
     Serial.println(F("[FS] LittleFS MOUNT FAILED!"));
     return;
   }
+
+  // Khôi phục toàn bộ cấu hình ngưỡng từ Flash
+  loadGatewayConfig();
 
   // Khôi phục g_totalRecords bằng cách đếm dòng
   if (LittleFS.exists(CSV_FILE)) {
@@ -625,11 +697,47 @@ void processLoRaPacket(String rawJson) {
       g_fanPWM = (int)doc["fan_pwm"];
     else
       g_fanPWM = map(g_fanSpeed, 0, 100, 0, 255);
-    if (doc.containsKey("fan_sp"))
-      g_fanSetpoint = doc["fan_sp"];
+    bool cfgChanged = false;
+    if (doc.containsKey("fan_sp")) {
+      if (g_fanSetpoint != (float)doc["fan_sp"]) {
+        g_fanSetpoint = doc["fan_sp"];
+        cfgChanged = true;
+      }
+    }
 
-    if (doc.containsKey("light_th"))
-      g_lightThresh = doc["light_th"];
+    if (doc.containsKey("light_th")) {
+      if (g_lightThresh != (float)doc["light_th"]) {
+        g_lightThresh = doc["light_th"];
+        cfgChanged = true;
+      }
+    }
+
+    if (doc.containsKey("mist_th")) {
+      if (g_mistHumidThresh != (float)doc["mist_th"]) {
+        g_mistHumidThresh = doc["mist_th"];
+        cfgChanged = true;
+      }
+    }
+
+    if (doc.containsKey("v1_dry")) {
+      if (g_v1_dry != (float)doc["v1_dry"]) { g_v1_dry = doc["v1_dry"]; cfgChanged = true; }
+    }
+    if (doc.containsKey("v1_wet")) {
+      if (g_v1_wet != (float)doc["v1_wet"]) { g_v1_wet = doc["v1_wet"]; cfgChanged = true; }
+    }
+    if (doc.containsKey("v2_dry")) {
+      if (g_v2_dry != (float)doc["v2_dry"]) { g_v2_dry = doc["v2_dry"]; cfgChanged = true; }
+    }
+    if (doc.containsKey("v2_wet")) {
+      if (g_v2_wet != (float)doc["v2_wet"]) { g_v2_wet = doc["v2_wet"]; cfgChanged = true; }
+    }
+    if (doc.containsKey("heater_sp")) {
+      if (g_heaterSetpoint != (float)doc["heater_sp"]) { g_heaterSetpoint = doc["heater_sp"]; cfgChanged = true; }
+    }
+
+    if (cfgChanged) {
+      saveGatewayConfig();
+    }
 
     g_sht30OK = doc.containsKey("s_ok") ? doc["s_ok"].as<bool>() : false;
     g_sht30ExtOK = doc.containsKey("se_ok") ? doc["se_ok"].as<bool>() : false;
@@ -638,9 +746,9 @@ void processLoRaPacket(String rawJson) {
     g_nodeUptime = doc["uptime"] | 0UL;
 
     Serial.printf(
-        "[LoRa] Status OK: T=%.1f H=%.1f L=%.0f Soil=%.1f Mist=%d Light=%d (m=%d)\n",
+        "[LoRa] Status OK: T=%.1f H=%.1f L=%.0f Soil=%.1f Mist=%d (TH=%.0f) Light=%d (TH=%.0f) FanSP=%.1f\n",
         g_temperature, g_humidity, g_lightLux, g_soilMoisture, g_mistRunning,
-        g_lightRunning, g_lightManual);
+        g_mistHumidThresh, g_lightRunning, g_lightThresh, g_fanSetpoint);
   } else if (type == "cfg") {
     if (doc.containsKey("v1_dry"))
       g_v1_dry = doc["v1_dry"];
@@ -658,7 +766,8 @@ void processLoRaPacket(String rawJson) {
       g_v2_to = doc["v2_to"];
     if (doc.containsKey("v2_rest"))
       g_v2_rest = doc["v2_rest"];
-    Serial.println(F("[LoRa] Da dong bo cau hinh van tu Master Node ✓"));
+    saveGatewayConfig();
+    Serial.println(F("[LoRa] Da dong bo va luu cau hinh van tu Master Node ✓"));
   } else if (type == "forecast") {
     JsonArray arrT = doc["temp"];
     JsonArray arrH = doc["humid"];
@@ -879,14 +988,19 @@ void handleApiStatus() {
 
   doc["mist_running"] = g_mistRunning;
   doc["mist_manual"] = g_mistManual;
+  doc["mist_thresh"] = g_mistHumidThresh;
 
   doc["light_running"] = g_lightRunning;
   doc["light_manual"] = g_lightManual;
   doc["light_thresh"] = g_lightThresh;
 
+  doc["pump_on"] = g_pumpOnThresh;
+  doc["pump_off"] = g_pumpOffThresh;
+
   doc["heater_running"] = g_heaterRunning;
   doc["heater_manual"] = g_heaterManual;
   doc["heater_pwm"] = g_heaterPWM;
+  doc["heater_setpoint"] = g_heaterSetpoint;
 
   doc["valve1_running"] = g_v1_run;
   doc["valve2_running"] = g_v2_run;
@@ -1051,6 +1165,7 @@ void handleApiControl() {
       if (webServer.hasArg("name"))
         g_v2_name = webServer.arg("name");
     }
+    saveGatewayConfig();
   }
 
   // -- Dừng khẩn cấp --
@@ -1139,6 +1254,7 @@ void handleApiControl() {
 
     g_fanMode = 1;
     g_fanSetpoint = sp;
+    saveGatewayConfig();
   }
 
   // -- Cấu hình ngưỡng bơm --
@@ -1156,6 +1272,7 @@ void handleApiControl() {
     String s;
     serializeJson(d, s);
     cmdList.push_back(s);
+    saveGatewayConfig();
   }
 
   // -- Ngưỡng đèn --
@@ -1168,6 +1285,21 @@ void handleApiControl() {
     String s;
     serializeJson(d, s);
     cmdList.push_back(s);
+    saveGatewayConfig();
+  }
+
+  // -- Ngưỡng phun sương cấp ẩm --
+  if (webServer.hasArg("mist_thresh")) {
+    float mth = webServer.arg("mist_thresh").toFloat();
+    StaticJsonDocument<128> d;
+    d["cmd"] = "config";
+    d["mist_th"] = mth;
+    String s;
+    serializeJson(d, s);
+    cmdList.push_back(s);
+
+    g_mistHumidThresh = mth;
+    saveGatewayConfig();
   }
 
   // -- Phun sương --
@@ -1248,6 +1380,17 @@ void handleApiControl() {
     g_heaterPWM = spd;
     g_heaterRunning = (spd > 0);
     g_heaterManual = true;
+    String s;
+    serializeJson(d, s);
+    cmdList.push_back(s);
+  }
+  if (webServer.hasArg("heater_setpoint")) {
+    float sp = webServer.arg("heater_setpoint").toFloat();
+    g_heaterSetpoint = sp;
+    saveGatewayConfig();
+    StaticJsonDocument<128> d;
+    d["cmd"] = "heater_cfg";
+    d["setpoint"] = sp;
     String s;
     serializeJson(d, s);
     cmdList.push_back(s);
