@@ -8,8 +8,8 @@
 // ─────────────────────────────────────────────────────────────
 //  1. KẾT NỐI MẠNG KHÔNG DÂY WIFI (TRẠM THU THẬP & PHÁT API)
 // ─────────────────────────────────────────────────────────────
-#define WIFI_SSID        "Xoi Banh My Chi Nga"
-#define WIFI_PASSWORD    "13071982"
+#define WIFI_SSID        "..."
+#define WIFI_PASSWORD    "29032006"
 
 // ─────────────────────────────────────────────────────────────
 //  2. GIAO THỨC MQTT (TÙY CHỌN ĐẨY LÊN BROKER TRUNG TÂM)

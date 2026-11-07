@@ -83,95 +83,10 @@ void initSensors() {
     Serial.println(F("[BH1750] FAILED! Kiem tra ket noi I2C."));
   }
 
-  // ─ Cảm biến độ ẩm đất (ADC1: GPIO 34 & GPIO 35) ─
-  // Cả GPIO 34 và GPIO 35 đều là input-only trên ESP32 (không xung đột WiFi)
-  analogReadResolution(12);       // 12-bit ADC: 0 – 4095
-  analogSetAttenuation(ADC_11db); // Dải đo: 0 – 3.3V (full range)
-
-  Serial.printf("[SOIL]   Khoi tao 2 cam bien: Van 1 (Pin %d), Van 2 (Pin %d)\n",
-                SOIL1_PIN, SOIL2_PIN);
-
-#if SOIL_CALIBRATION_MODE
-  Serial.println();
-  Serial.println(F("╔══════════════════════════════════════╗"));
-  Serial.println(F("║  CHE DO CALIBRATE CAM BIEN DAT       ║"));
-  Serial.println(F("║  Xem ADC RAW trong Serial Monitor    ║"));
-  Serial.println(F("║  Dat cam bien KHO  -> ghi SOIL_DRY   ║"));
-  Serial.println(F("║  Nhung vao NUOC   -> ghi SOIL_WET    ║"));
-  Serial.println(F("╚══════════════════════════════════════╝"));
-#endif
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  ĐỌC ĐỘ ẨM ĐẤT (ADC) CHO TỪNG KÊNH CẢM BIẾN
-//  Phát hiện lỗi hở mạch/chập mạch, tính toán % theo calib riêng
-static bool s_lastSoilFault1 = false;
-static bool s_lastSoilFault2 = false;
-
-float readSoilChannel(int pin, int dryVal, int wetVal, int &outRaw, bool &outError) {
-  long sum = 0;
-  for (int i = 0; i < SOIL_SAMPLES; i++) {
-    sum += analogRead(pin);
-    delay(5); // Nghỉ 5ms để nạp tụ ADC
-  }
-  int raw = (int)(sum / SOIL_SAMPLES);
-  outRaw = raw;
-
-  bool &lastFault = (pin == SOIL2_PIN) ? s_lastSoilFault2 : s_lastSoilFault1;
-
-  // Kiểm tra lỗi cảm biến (đứt dây nguồn hoặc chập mass)
-  if (raw < SOIL_RAW_FAULT_LOW || raw > SOIL_RAW_FAULT_HIGH) {
-    outError = true;
-    if (!lastFault) {
-      lastFault = true;
-      Serial.printf("[SOIL] Pin %d: Mat tin hieu hoac cham mass (Raw=%d < %d)\n",
-                    pin, raw, SOIL_RAW_FAULT_LOW);
-    }
-    return NAN;
-  }
-  
-  if (lastFault) {
-    lastFault = false;
-    Serial.printf("[SOIL OK] Pin %d: Da ket noi lai binh thuong (Raw=%d)\n", pin, raw);
-  }
-  outError = false;
-
-  // Tính % bằng floating point (Capacitive v1.2: khô = Raw cao, ướt = Raw thấp)
-  float span = (float)(dryVal - wetVal);
-  if (fabsf(span) < 1.0f) span = 1.0f;
-
-  float pct = ((float)(dryVal - raw) / span) * 100.0f;
-  return constrain(pct, 0.0f, 100.0f);
-}
-
-float readSoilMoisture() {
-  // 1. Đọc kênh 1 (Van 1 - GPIO 34)
-  int raw1 = 0;
-  bool err1 = false;
-  float s1 = readSoilChannel(g_valves[0].soilPin, g_valves[0].dryRaw, g_valves[0].wetRaw, raw1, err1);
-  g_valves[0].rawADC = raw1;
-  g_valves[0].sensorError = err1;
-  g_valves[0].currentSoil = s1;
-  g_soilMoisture = s1; // Tương thích ngược
-
-#if NUM_SOIL_SENSORS >= 2
-  // 2. Đọc kênh 2 (Van 2 - GPIO 35)
-  int raw2 = 0;
-  bool err2 = false;
-  float s2 = readSoilChannel(g_valves[1].soilPin, g_valves[1].dryRaw, g_valves[1].wetRaw, raw2, err2);
-  g_valves[1].rawADC = raw2;
-  g_valves[1].sensorError = err2;
-  g_valves[1].currentSoil = s2;
-  g_soilMoisture2 = s2;
-#else
-  // Chế độ 1 cảm biến: Van 2 dùng chung dữ liệu với Van 1 (không lo chân GPIO 35 thả nổi)
-  g_valves[1].rawADC = raw1;
-  g_valves[1].sensorError = err1;
-  g_valves[1].currentSoil = s1;
-  g_soilMoisture2 = s1;
-#endif
-
-  return s1;
+  // ─ Cảm biến độ ẩm đất ─
+  // Master Node không đo ADC đất trực tiếp; độ ẩm đất Luống 1 & Luống 2
+  // được nhận không dây từ Sensor Node 1 & Sensor Node 2 qua LoRa E32.
+  Serial.println(F("[SOIL WSN] Van 1 & Van 2 nhan du lieu khong day tu Sensor Node 1 & 2"));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -212,8 +127,92 @@ void recoverI2CBus(int sdaPin, int sclPin, TwoWire &wireBus) {
 //  ĐỌC TẤT CẢ CẢM BIẾN (Chạy ngầm mỗi 2s, in tóm tắt mỗi 10s chống spam)
 //  Tích hợp cơ chế tự phục hồi bus I2C và sấy màng SHT30 chống đọng ẩm
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  THUẬT TOÁN DATA FUSION & CHỊU LỖI CHO VI KHÍ HẬU VÀ ĐẤT
+//  - Tổng hợp 3 cảm biến SHT30 bên trong nhà: Master Local, Node 1, Node 2
+//  - Tự động phát hiện Timeout (>35s) của từng Sensor Node
+//  - Cập nhật độ ẩm đất cho 2 Luống tưới từ 2 Node không dây
+// ═══════════════════════════════════════════════════════════════
+void updateMicroclimateFusion() {
+  unsigned long now = millis();
+
+  // 1. Kiểm tra timeout cho từng Sensor Node
+  for (int i = 0; i < 2; i++) {
+    if (g_sensorNode[i].isOnline && (now - g_sensorNode[i].lastSeen > NODE_TIMEOUT_MS)) {
+      g_sensorNode[i].isOnline = false;
+      Serial.printf("[WSN WARN] Sensor Node %d mat ket noi (TIMEOUT > 35s)!\n", i + 1);
+    }
+  }
+
+  // 2. Cập nhật độ ẩm đất cho 2 luống tưới
+  // Node 1 -> Van 1 (Luống 1)
+  if (g_sensorNode[0].isOnline && !isnan(g_sensorNode[0].soilMoisture)) {
+    g_valves[0].currentSoil = g_sensorNode[0].soilMoisture;
+    g_valves[0].sensorError = false;
+    g_soilMoisture = g_sensorNode[0].soilMoisture;
+  } else {
+    g_valves[0].sensorError = true;
+    g_valves[0].currentSoil = NAN;
+    g_soilMoisture = NAN;
+  }
+
+  // Node 2 -> Van 2 (Luống 2)
+  if (g_sensorNode[1].isOnline && !isnan(g_sensorNode[1].soilMoisture)) {
+    g_valves[1].currentSoil = g_sensorNode[1].soilMoisture;
+    g_valves[1].sensorError = false;
+    g_soilMoisture2 = g_sensorNode[1].soilMoisture;
+  } else {
+    g_valves[1].sensorError = true;
+    g_valves[1].currentSoil = NAN;
+    g_soilMoisture2 = NAN;
+  }
+
+  // 3. Tính toán trung bình thích nghi nhiệt độ & độ ẩm không khí bên trong từ 3 nguồn
+  float sumTemp = 0.0f;
+  float sumHumid = 0.0f;
+  int validCount = 0;
+
+  // Nguồn 1: SHT30 Trong Nhà tại Master
+  if (g_sht30OK && !isnan(g_tempInLocal) && g_tempInLocal >= TEMP_MIN && g_tempInLocal <= TEMP_MAX &&
+      !isnan(g_humidInLocal) && g_humidInLocal >= HUMID_MIN && g_humidInLocal <= HUMID_MAX) {
+    sumTemp += g_tempInLocal;
+    sumHumid += g_humidInLocal;
+    validCount++;
+  }
+
+  // Nguồn 2: SHT30 tại Sensor Node 1
+  if (g_sensorNode[0].isOnline && !g_sensorNode[0].shtError &&
+      !isnan(g_sensorNode[0].temperature) && g_sensorNode[0].temperature >= TEMP_MIN && g_sensorNode[0].temperature <= TEMP_MAX &&
+      !isnan(g_sensorNode[0].humidity) && g_sensorNode[0].humidity >= HUMID_MIN && g_sensorNode[0].humidity <= HUMID_MAX) {
+    sumTemp += g_sensorNode[0].temperature;
+    sumHumid += g_sensorNode[0].humidity;
+    validCount++;
+  }
+
+  // Nguồn 3: SHT30 tại Sensor Node 2
+  if (g_sensorNode[1].isOnline && !g_sensorNode[1].shtError &&
+      !isnan(g_sensorNode[1].temperature) && g_sensorNode[1].temperature >= TEMP_MIN && g_sensorNode[1].temperature <= TEMP_MAX &&
+      !isnan(g_sensorNode[1].humidity) && g_sensorNode[1].humidity >= HUMID_MIN && g_sensorNode[1].humidity <= HUMID_MAX) {
+    sumTemp += g_sensorNode[1].temperature;
+    sumHumid += g_sensorNode[1].humidity;
+    validCount++;
+  }
+
+  // Gán giá trị trung bình đại diện toàn bộ nhà màng
+  if (validCount > 0) {
+    g_temperature = sumTemp / validCount;
+    g_humidity = sumHumid / validCount;
+  } else {
+    g_temperature = NAN;
+    g_humidity = NAN;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ĐỌC TẤT CẢ CẢM BIẾN TẠI CHỖ & TỔNG HỢP WSN
+// ═══════════════════════════════════════════════════════════════
 void readSensors() {
-  // ─ 1. SHT30 Trong Nhà (I2C 0: SDA 21, SCL 22) ─
+  // ─ 1. SHT30 Trong Nhà #1 (I2C 0: SDA 21, SCL 22) ─
   static unsigned long lastInRetry = 0;
   static unsigned long lastHeaterDry = 0;
 
@@ -224,8 +223,8 @@ void readSensors() {
     bool hOK = !isnan(h) && h >= HUMID_MIN && h <= HUMID_MAX;
 
     if (tOK && hOK) {
-      g_temperature = t;
-      g_humidity = h;
+      g_tempInLocal = t;
+      g_humidInLocal = h;
       g_sensorErrors = 0;
 
       // Sấy nhẹ tự động: nếu ẩm trong nhà >= 92% (phun sương mạnh dễ đọng nước)
@@ -238,7 +237,6 @@ void readSensors() {
     } else {
       g_sensorErrors++;
       if (g_sensorErrors == 2) {
-        // Nhấp sấy nhanh 40ms nếu chớm có lỗi đọc do sương bám
         sht30.heater(true);
         delay(40);
         sht30.heater(false);
@@ -248,13 +246,12 @@ void readSensors() {
         g_sht30OK = sht30.begin(0x44) || sht30.begin(0x45);
         g_sensorErrors = 0;
         if (!g_sht30OK) {
-          g_temperature = NAN;
-          g_humidity = NAN;
+          g_tempInLocal = NAN;
+          g_humidInLocal = NAN;
         }
       }
     }
   } else {
-    // Tự động kết nối lại mỗi 5 giây nếu đang bị mất cảm biến
     if (millis() - lastInRetry >= 5000) {
       lastInRetry = millis();
       recoverI2CBus(I2C_SDA, I2C_SCL, Wire);
@@ -264,8 +261,8 @@ void readSensors() {
         g_sensorErrors = 0;
         Serial.println(F("[SHT30 IN OK] Da phuc hoi ket noi thanh cong!"));
       } else {
-        g_temperature = NAN;
-        g_humidity = NAN;
+        g_tempInLocal = NAN;
+        g_humidInLocal = NAN;
       }
     }
   }
@@ -298,7 +295,6 @@ void readSensors() {
       }
     }
   } else {
-    // Tự động kết nối lại mỗi 5 giây
     if (millis() - lastExtRetry >= 5000) {
       lastExtRetry = millis();
       recoverI2CBus(I2C1_SDA, I2C1_SCL, I2C_Ext);
@@ -336,25 +332,22 @@ void readSensors() {
     }
   }
 
-  // ─ 4. Cảm biến độ ẩm đất 2 luống ─
-  float soil = readSoilMoisture();
-  if (!isnan(soil) && soil >= 0.0f) {
-    g_soilMoisture = soil;
-  } else {
-    g_soilMoisture = NAN;
-  }
+  // ─ 4. Thực thi Data Fusion tổng hợp từ 3 SHT30 & 2 Sensor Node ─
+  updateMicroclimateFusion();
 
   // ─ In định kỳ 10 giây tóm tắt 1 dòng duy nhất, không spam Serial ─
   static unsigned long lastLogPrint = 0;
   unsigned long now = millis();
   if (now - lastLogPrint >= 10000) {
     lastLogPrint = now;
-    Serial.printf("[SENSOR] In: %s | Out: %s | Lux: %s | V1: %s (ADC:%d) | V2: %s (ADC:%d)\n",
+    Serial.printf("[WSN STATUS] T_avg: %s | Out: %s | Lux: %s | V1(N1): %s | V2(N2): %s | N1:%s N2:%s\n",
                   isnan(g_temperature) ? "ERR" : (String(g_temperature, 1) + "*C/" + String(g_humidity, 1) + "%").c_str(),
                   isnan(g_tempExt) ? "ERR" : (String(g_tempExt, 1) + "*C/" + String(g_humidExt, 1) + "%").c_str(),
                   isnan(g_lightLux) ? "ERR" : (String(g_lightLux, 0) + " lx").c_str(),
-                  isnan(g_valves[0].currentSoil) ? "LOI" : (String(g_valves[0].currentSoil, 0) + "%").c_str(), g_valves[0].rawADC,
-                  isnan(g_valves[1].currentSoil) ? "LOI" : (String(g_valves[1].currentSoil, 0) + "%").c_str(), g_valves[1].rawADC);
+                  isnan(g_valves[0].currentSoil) ? "LOI" : (String(g_valves[0].currentSoil, 0) + "%").c_str(),
+                  isnan(g_valves[1].currentSoil) ? "LOI" : (String(g_valves[1].currentSoil, 0) + "%").c_str(),
+                  g_sensorNode[0].isOnline ? "ON" : "OFF",
+                  g_sensorNode[1].isOnline ? "ON" : "OFF");
   }
 }
 

@@ -41,19 +41,28 @@ double pidOutput = 0.0;
 PID fanPID(&pidInput, &pidOutput, &pidSetpoint, PID_KP, PID_KI, PID_KD,
            REVERSE);
 
+double heaterPidInput = 0.0;
 double heaterPidOutput = 0.0;
-double heaterSetpoint = DEFAULT_FAN_SETPOINT - 2.0;
-PID heaterPID(&pidInput, &heaterPidOutput, &heaterSetpoint, PID_KP, PID_KI,
+double heaterSetpoint = DEFAULT_HEATER_SETPOINT;
+PID heaterPID(&heaterPidInput, &heaterPidOutput, &heaterSetpoint, PID_KP, PID_KI,
               PID_KD, DIRECT);
 
-// ─── Dữ liệu cảm biến ────────────────────────────────────────
-float g_temperature = NAN;
-float g_humidity = NAN;
-float g_tempExt = NAN;
-float g_humidExt = NAN;
-float g_lightLux = NAN;
-float g_soilMoisture = NAN;  // Đất kênh 1 (0–100 %)
-float g_soilMoisture2 = NAN; // Đất kênh 2 (0–100 %)
+// ─── Dữ liệu cảm biến vi khí hậu & WSN ───────────────────────
+float g_temperature = NAN;   // Nhiệt độ trung bình trong nhà màng (Data Fusion từ 3 nguồn)
+float g_humidity = NAN;      // Độ ẩm trung bình trong nhà màng (Data Fusion từ 3 nguồn)
+float g_tempInLocal = NAN;   // SHT30 Trong #1 (đo trực tiếp tại bo Master)
+float g_humidInLocal = NAN;  // SHT30 Trong #1 (đo trực tiếp tại bo Master)
+
+SensorNodeData g_sensorNode[2] = {
+  {false, false, 0, 0, NAN, NAN, NAN, 0, false, false}, // Sensor Node 1
+  {false, false, 0, 0, NAN, NAN, NAN, 0, false, false}  // Sensor Node 2
+};
+
+float g_tempExt = NAN;       // SHT30 Ngoài trời
+float g_humidExt = NAN;      // SHT30 Ngoài trời
+float g_lightLux = NAN;      // BH1750 Ánh sáng
+float g_soilMoisture = NAN;  // Đất kênh 1 (Luống 1 từ Sensor Node 1)
+float g_soilMoisture2 = NAN; // Đất kênh 2 (Luống 2 từ Sensor Node 2)
 int g_soilRawADC = 0;
 bool g_sht30OK = false;
 bool g_sht30ExtOK = false;
@@ -77,8 +86,8 @@ ValveConfig g_valves[NUM_VALVES] = {
     65.0f, // wetThresh: trên 65% thì dừng
     DEFAULT_VALVE_TIMEOUT,   // maxDuration: 300s
     DEFAULT_VALVE_REST_TIME, // minRestTime: 60s
-    SOIL_DRY_VALUE, // dryRaw: 1500
-    SOIL_WET_VALUE, // wetRaw: 3000
+    SOIL1_DRY_VALUE, // dryRaw: 2500 (hiệu chuẩn ngoài không khí)
+    SOIL1_WET_VALUE, // wetRaw: 1500 (hiệu chuẩn trong nước)
     VALVE_MODE_AUTO, // mode: 1 (AUTO)
     false, // isRunning
     0, // runStartTime
@@ -95,8 +104,8 @@ ValveConfig g_valves[NUM_VALVES] = {
     70.0f, // wetThresh: trên 70% thì dừng
     DEFAULT_VALVE_TIMEOUT,   // maxDuration: 300s
     DEFAULT_VALVE_REST_TIME, // minRestTime: 60s
-    SOIL_DRY_VALUE, // dryRaw: 1500
-    SOIL_WET_VALUE, // wetRaw: 3000
+    SOIL2_DRY_VALUE, // dryRaw: 2420 (hiệu chuẩn ngoài không khí)
+    SOIL2_WET_VALUE, // wetRaw: 1500 (hiệu chuẩn trong nước)
     VALVE_MODE_AUTO, // mode: 1 (AUTO)
     false, // isRunning
     0, // runStartTime
@@ -177,6 +186,7 @@ void setup() {
     loadConfig();
     loadValvesConfig();
     sendValveConfigToGateway();
+    delay(500); // Đợi phát xong gói cấu hình van trước khi phát tiếp
   }
 
   // Forecast ML
@@ -192,7 +202,7 @@ void setup() {
 void loop() {
   unsigned long now = millis();
 
-  checkLoRaCommand();
+  checkLoRaTraffic();
   checkHMICommand();
 
   // Máy trạng thái liên động an toàn và timeout tưới chạy thời gian thực mỗi chu kỳ loop
@@ -215,8 +225,8 @@ void loop() {
 
   if (now - g_lastLoraTime >= LORA_INTERVAL) {
     if (LoRaSerial.available() > 0) {
-      checkLoRaCommand();
-      g_lastLoraTime = now - LORA_INTERVAL + 1500; // Hoãn lại 1.5s để xử lý xong lệnh điều khiển trước
+      checkLoRaTraffic();
+      g_lastLoraTime = now - LORA_INTERVAL + 1500; // Hoãn lại 1.5s để xử lý xong gói tin trước
     } else {
       g_lastLoraTime = now;
       sendDataToGateway();
@@ -356,7 +366,7 @@ void loadConfig() {
       if (doc.containsKey("heater_sp"))
         setHeaterSetpoint(doc["heater_sp"]);
       else
-        setHeaterSetpoint(g_fanSetpoint - 2.0);
+        setHeaterSetpoint(DEFAULT_HEATER_SETPOINT);
       if (doc.containsKey("pump_on"))
         g_pumpOnThresh = doc["pump_on"];
       if (doc.containsKey("pump_off"))
@@ -395,6 +405,7 @@ void loadValvesConfig() {
     if (!error) {
       if (doc.containsKey("seq")) g_sequentialIrrigation = doc["seq"];
       g_pumpEnabled = true; // Luôn sẵn sàng hoạt động, quản lý dừng qua cờ khẩn cấp
+      bool needResave = false;
       if (doc.containsKey("v")) {
         JsonArray arr = doc["v"];
         for (int i = 0; i < NUM_VALVES && i < (int)arr.size(); i++) {
@@ -408,14 +419,22 @@ void loadValvesConfig() {
           if (v.containsKey("wet_raw")) g_valves[i].wetRaw = v["wet_raw"];
           if (v.containsKey("mode")) g_valves[i].mode = v["mode"];
 
-          // Tự động sửa nếu cấu hình cũ từng lưu dry <= wet (ngược chiều cảm biến điện dung)
-          if (g_valves[i].dryRaw <= g_valves[i].wetRaw) {
-            g_valves[i].dryRaw = SOIL_DRY_VALUE;
-            g_valves[i].wetRaw = SOIL_WET_VALUE;
+          // Tự động sửa nếu cấu hình cũ từng lưu mốc chưa calib (>= 2800) hoặc ngược chiều (dry <= wet)
+          if (g_valves[i].dryRaw <= g_valves[i].wetRaw || g_valves[i].dryRaw >= 2800) {
+            g_valves[i].dryRaw = (i == 0) ? SOIL1_DRY_VALUE : SOIL2_DRY_VALUE;
+            g_valves[i].wetRaw = (i == 0) ? SOIL1_WET_VALUE : SOIL2_WET_VALUE;
+            needResave = true;
           }
         }
       }
-      Serial.println(F("[FS] Da load cau hinh van tuoi tu /valves.json"));
+      f.close();
+      if (needResave) {
+        saveValvesConfig();
+        Serial.println(F("[FS] Da cap nhat lai moc calib dat moi vao /valves.json"));
+      } else {
+        Serial.println(F("[FS] Da load cau hinh van tuoi tu /valves.json"));
+      }
+      return;
     }
     f.close();
   }

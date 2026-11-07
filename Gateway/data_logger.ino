@@ -14,6 +14,8 @@ void loadGatewayConfig() {
           g_fanSetpoint = doc["fan_sp"];
         if (doc.containsKey("heater_sp"))
           g_heaterSetpoint = doc["heater_sp"];
+        else
+          g_heaterSetpoint = 28.5;
         if (doc.containsKey("mist_th"))
           g_mistHumidThresh = doc["mist_th"];
         if (doc.containsKey("light_th"))

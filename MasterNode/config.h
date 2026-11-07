@@ -83,36 +83,59 @@ extern unsigned long g_mistStartTime;
      // 0)
 
 // ─────────────────────────────────────────────────────────────
-//  8. CẢM BIẾN ĐỘ ẨM ĐẤT 2 KÊNH (CHO 2 LUỐNG RIÊNG BIỆT)
-//  Sử dụng cảm biến điện dung Capacitive v1.2 chống ăn mòn
-//  Phần cứng: H23 (Luống 1) & H28 (Luống 2), mỗi kênh có tụ gốm 1µF lọc nhiễu
-//  ADC xuống GND
+//  8. CẢM BIẾN ĐỘ ẨM ĐẤT (WSN DISTRIBUTED SENSING)
+//  Đã giải phóng GPIO 34 và 35 trên Master Node!
+//  Độ ẩm đất Luống 1 được nhận từ Sensor Node 1 qua LoRa
+//  Độ ẩm đất Luống 2 được nhận từ Sensor Node 2 qua LoRa
 // ─────────────────────────────────────────────────────────────
-#define SOIL1_PIN 34 // GPIO 34 (ADC1_CH6, Input-only) - Đo ẩm đất Van 1 (Luống 1, Header H23)
-#define SOIL2_PIN 35 // GPIO 35 (ADC1_CH7, Input-only) - Đo ẩm đất Van 2 (Luống 2, Header H28)
-#define SOIL_PIN SOIL1_PIN // Tương thích ngược với hệ thống 1 cảm biến cũ
+#define NUM_SOIL_SENSORS 2 // 2 kênh luống: Van 1 (Node 1), Van 2 (Node 2)
+#define SOIL1_PIN -1       // Không dùng chân cứng trên Master
+#define SOIL2_PIN -1       // Không dùng chân cứng trên Master
+#define SOIL_PIN SOIL1_PIN
 
-#define NUM_SOIL_SENSORS 2 // =1: Chỉ dùng 1 cảm biến (GPIO 34, Van 2 dùng chung dữ liệu); =2: Cắm đủ 2
-    // cảm biến (GPIO 34 & 35)
+#define SOIL1_DRY_VALUE 2500
+#define SOIL1_WET_VALUE 1500
+#define SOIL2_DRY_VALUE 2420
+#define SOIL2_WET_VALUE 1500
+#define SOIL_DRY_VALUE SOIL1_DRY_VALUE
+#define SOIL_WET_VALUE SOIL1_WET_VALUE
 
-#define SOIL_SAMPLES 10 // Số mẫu lấy trung bình (lọc nhiễu ADC bằng phần mềm)
+// ─────────────────────────────────────────────────────────────
+//  8.1. ĐỊNH NGHĨA GIAO THỨC WSN & DỮ LIỆU SENSOR NODES
+// ─────────────────────────────────────────────────────────────
+#define SENSOR_PACKET_HEADER 0xAA
+#define ACK_PACKET_HEADER    0x55
+#define NODE_TIMEOUT_MS      35000UL // Quá 35s không nhận tin coi như node mất kết nối
 
-// Cảm biến độ ẩm đất điện dung (Capacitive v1.2 / v2.0):
-// - Trong KHÔNG KHÍ (Khô): Tần số cao nhất -> Điện áp cao nhất -> ADC Raw lớn
-// (~3000 - 4095)
-// - Trong NƯỚC (Ướt):      Điện dung tăng   -> Điện áp tụt       -> ADC Raw nhỏ
-// (~1300 - 1800)
-#define SOIL_DRY_VALUE 3200 // Giá trị ADC Raw khi đất KHÔ (Calib thực tế: trong không khí)
-#define SOIL_WET_VALUE 1500 // Giá trị ADC Raw khi đất ƯỚT (Calib thực tế: nhúng cốc nước)
-#define SOIL_CALIBRATION_MODE 0 // =1: In ADC Raw ra Serial để hiệu chuẩn
+typedef struct __attribute__((packed)) {
+  uint8_t  header;       // 0xAA
+  uint8_t  node_id;      // 1 hoặc 2
+  uint16_t msg_id;       // Đếm tăng dần
+  int16_t  temp_x10;     // Nhiệt độ * 10
+  uint16_t hum_x10;      // Độ ẩm không khí * 10
+  uint16_t soil_pct;     // Độ ẩm đất (%)
+  uint8_t  status_mask;  // Bit 0: lỗi SHT30, Bit 1: lỗi đất
+  uint16_t crc16;        // CRC-16
+} SensorPacket;
 
-// Giới hạn kiểm tra lỗi phần cứng cảm biến:
-// Cảm biến điện dung bình thường trong không khí có thể xuất áp kịch trần (ADC
-// = 4095), đây là trạng thái KHÔ bình thường chứ không phải lỗi! Chỉ coi là lỗi
-// khi chân bị chập mass hoặc đứt dây nguồn làm áp về 0 (ADC < 20).
-#define SOIL_RAW_FAULT_LOW 20 // Raw < 20: Chập mass GND hoặc mất nguồn VCC
-#define SOIL_RAW_FAULT_HIGH 4096 // Tắt bắt lỗi trần cao (giá trị 4095 là hoàn toàn bình thường ở trạng
-       // thái đất khô)
+typedef struct __attribute__((packed)) {
+  uint8_t  header;       // 0x55
+  uint8_t  target_id;    // 1 hoặc 2
+  uint16_t ack_msg_id;   // Mã gói tin vừa nhận
+} AckPacket;
+
+struct SensorNodeData {
+  bool isOnline;
+  bool isConfigured;
+  uint8_t nodeId;
+  uint32_t lastSeen;
+  float temperature;
+  float humidity;
+  float soilMoisture;
+  uint16_t msgId;
+  bool shtError;
+  bool soilError;
+};
 
 // ─────────────────────────────────────────────────────────────
 //  9. CẤU HÌNH HỆ THỐNG TƯỚI THÔNG MINH (BƠM & 2 VAN LIÊN ĐỘNG AN TOÀN)
@@ -156,7 +179,7 @@ struct ValveConfig {
 // ─────────────────────────────────────────────────────────────
 //  10. CHU KỲ LẤY MẪU & GỬI DỮ LIỆU (milliseconds)
 // ─────────────────────────────────────────────────────────────
-#define SENSOR_INTERVAL 2000 // Đọc cảm biến môi trường & đất mỗi 2 giây
+#define SENSOR_INTERVAL 10000 // Đọc cảm biến môi trường & đất mỗi 2 giây
 #define HMI_INTERVAL 1000    // Đồng bộ dữ liệu sang màn hình LCD HMI mỗi 1 giây
 #define LORA_INTERVAL 10000 // Gửi gói tin trạng thái lên Gateway qua LoRa mỗi 10 giây
 #define FORECAST_INTERVAL 300000 // Chạy mô hình TinyML dự báo mỗi 5 phút (1 bước Horizon)
@@ -166,7 +189,7 @@ struct ValveConfig {
 // ─────────────────────────────────────────────────────────────
 #define PID_KP 75.0             // Hệ số tỷ lệ P (phản ứng tuyến tính 25 PWM mỗi 1 độ C quá nhiệt)
 #define PID_KI 0.05               // Hệ số tích phân I (chống bão hòa tích phân)
-#define PID_KD 2.0                // Hệ số vi phân D
+#define PID_KD 0                // Hệ số vi phân D
 #define DEFAULT_FAN_SETPOINT 30.5 // Nhiệt độ mục tiêu cài đặt (°C)
 #define FAN_DEADBAND 1.0 // Vùng chết chống đóng/ngắt liên tục quanh ngưỡng (±0.5°C)
 #define FAN_PWM_MIN  102 // Ngưỡng PWM tối thiểu (~40%) để quạt chạy ổn định (đồng bộ mức 1 nút nhấn)
@@ -174,6 +197,9 @@ struct ValveConfig {
 #define FAN_KICKSTART_PWM 255 // Xung PWM đề pa tối đa để thắng ma sát tĩnh của quạt DC
 #define FAN_KICKSTART_MS  300 // Thời gian duy trì đề pa (ms) giúp quạt lấy trớn quay ngay
 #define HEATER_PWM_MIN 50 // Ngưỡng PWM tối thiểu cho bóng sưởi ấm
+#define HEATER_PWM_MAX 255 // Giá trị PWM tối đa (100% công suất sưởi)
+#define DEFAULT_HEATER_SETPOINT 28.5 // Nhiệt độ mục tiêu bật sưởi ấm cài đặt (°C)
+#define HEATER_DEADBAND 1.0 // Vùng chết chống đóng/ngắt liên tục quanh ngưỡng sưởi (±0.5°C)
 
 #define FAN_MODE_OFF 0    // Quạt tắt thủ công
 #define FAN_MODE_AUTO 1   // Quạt chạy tự động theo thuật toán PID nhiệt độ
@@ -207,3 +233,10 @@ void setPumpManual(bool on);
 void cycleFanHMI();
 void cycleHeaterHMI();
 void setHeaterSetpoint(float sp);
+
+// Các hàm xử lý WSN & Data Fusion
+void checkLoRaTraffic();
+void updateMicroclimateFusion();
+void sendAckToNode(uint8_t nodeId, uint16_t msgId);
+uint16_t calcCRC16(const uint8_t *data, size_t len);
+

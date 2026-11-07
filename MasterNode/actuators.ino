@@ -151,7 +151,7 @@ void initHeater() {
   ledcAttach(HEATER_PIN, HEATER_PWM_FREQ, FAN_PWM_RES);
   ledcWrite(HEATER_PIN, 0);
 
-  heaterPID.SetOutputLimits(0, 255);
+  heaterPID.SetOutputLimits(HEATER_PWM_MIN, HEATER_PWM_MAX);
   heaterPID.SetSampleTime(SENSOR_INTERVAL);
   heaterPID.SetMode(AUTOMATIC);
 
@@ -167,22 +167,43 @@ void updateHeater() {
     return;
   }
 
-  pidInput = (double)g_temperature;
+  heaterPidInput = (double)g_temperature;
   if (heaterSetpoint <= 0) {
-    heaterSetpoint = (double)g_fanSetpoint - 2.0;
+    heaterSetpoint = DEFAULT_HEATER_SETPOINT;
   }
 
-  if (g_temperature >= heaterSetpoint) {
-    heaterPID.SetMode(MANUAL);
-    heaterPidOutput = 0;
-    setHeaterPWM(0);
-    heaterPID.SetMode(AUTOMATIC);
-  } else {
-    heaterPID.Compute();
-    int pwm = (int)heaterPidOutput;
-    if (pwm > 0 && pwm < HEATER_PWM_MIN)
-      pwm = HEATER_PWM_MIN;
-    setHeaterPWM(pwm);
+  // 1. Khi đèn sưởi đang TẮT:
+  if (!g_heaterRunning) {
+    // Bật sưởi khi nhiệt độ phòng giảm xuống dưới ngưỡng cài đặt
+    if (g_temperature < heaterSetpoint) {
+      heaterPID.SetMode(MANUAL);
+      heaterPidOutput = HEATER_PWM_MIN;
+      heaterPID.SetMode(AUTOMATIC);
+      heaterPID.Compute();
+      int pwm = (int)heaterPidOutput;
+      if (pwm < HEATER_PWM_MIN)
+        pwm = HEATER_PWM_MIN;
+      setHeaterPWM(pwm);
+    } else {
+      setHeaterPWM(0);
+    }
+  }
+  // 2. Khi đèn sưởi đang BẬT:
+  else {
+    // Tắt sưởi khi phòng đã đủ ấm (T >= Setpoint + DEADBAND để chống giật dội)
+    if (g_temperature >= (heaterSetpoint + HEATER_DEADBAND)) {
+      heaterPID.SetMode(MANUAL);
+      heaterPidOutput = 0;
+      heaterPID.SetMode(AUTOMATIC);
+      setHeaterPWM(0);
+    } else {
+      // Tiếp tục duy trì và điều tiết công suất tự động qua PID
+      heaterPID.Compute();
+      int pwm = (int)heaterPidOutput;
+      if (pwm < HEATER_PWM_MIN)
+        pwm = HEATER_PWM_MIN;
+      setHeaterPWM(pwm);
+    }
   }
 }
 

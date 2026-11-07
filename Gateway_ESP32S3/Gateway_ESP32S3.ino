@@ -157,7 +157,7 @@ float g_lightThresh = 1000.0;
 bool g_heaterRunning = false;
 bool g_heaterManual = false;
 int g_heaterPWM = 0;
-float g_heaterSetpoint = 28.0;
+float g_heaterSetpoint = 28.5;
 
 int g_roofAngle = 0;
 bool g_roofManual = false;
@@ -271,12 +271,12 @@ void loop() {
   // Đọc và giải mã gói tin từ sóng LoRa
   checkLoRaMessage();
 
-  // ─ Smart Retry: Tự động gửi lại lệnh nếu sau 800ms chưa nhận được phản hồi từ Master ─
-  if (g_cmdAckPending && (now - g_lastCmdSentTime >= 800)) {
+  // ─ Smart Retry: Tự động gửi lại lệnh nếu sau 2500ms chưa nhận được phản hồi từ Master (cho phép truyền nhận LoRa hoàn tất) ─
+  if (g_cmdAckPending && (now - g_lastCmdSentTime >= 2500)) {
     if (g_cmdRetryCount < 2) {
       g_cmdRetryCount++;
       g_lastCmdSentTime = now;
-      Serial.printf("[LoRa Retry %d] Chưa nhận phản hồi state -> Phát lại lệnh: %s\n",
+      Serial.printf("[LoRa Retry %d] Chưa nhận phản hồi -> Phát lại lệnh: %s\n",
                     g_cmdRetryCount, g_lastSentCmd.c_str());
       sendLoRaCommand(g_lastSentCmd, false); // Gửi lại (không tạo timer mới)
     } else {
@@ -424,6 +424,8 @@ void loadGatewayConfig() {
           g_fanSetpoint = doc["fan_sp"];
         if (doc.containsKey("heater_sp"))
           g_heaterSetpoint = doc["heater_sp"];
+        else
+          g_heaterSetpoint = 28.5;
         if (doc.containsKey("mist_th"))
           g_mistHumidThresh = doc["mist_th"];
         if (doc.containsKey("light_th"))
@@ -535,7 +537,7 @@ void trimFile() {
   }
 
   f.close();
-  temp.close();
+  temp.close();                                                                                                                                                                                                                                                                                                                                                                                                
 
   LittleFS.remove(CSV_FILE);
   LittleFS.rename("/temp.csv", CSV_FILE);
@@ -597,6 +599,12 @@ void processLoRaPacket(String rawJson) {
     return;
   String type = doc["type"].as<String>();
 
+  g_lastLoraReceive = millis();
+  if (type == "state") {
+    g_cmdAckPending = false; // Đã nhận gói tin phản hồi tức thì 'state' từ Master Node -> Hủy cờ chờ phát lại
+    g_cmdRetryCount = 0;
+  }
+
   if (type == "state" || type == "status") {
     // Nếu vừa gửi lệnh điều khiển trong vòng 3.5s:
     // CHỈ cho phép gói 'state' (phản hồi sự kiện tức thì từ Master) cập nhật thiết bị.
@@ -630,9 +638,11 @@ void processLoRaPacket(String rawJson) {
         g_fanMode = doc["fan_mode"] | 1;
       if (doc.containsKey("fan_speed"))
         g_fanSpeed = doc["fan_speed"] | 0;
+      else if (doc.containsKey("fan_spd"))
+        g_fanSpeed = doc["fan_spd"] | 0;
       if (doc.containsKey("fan_pwm"))
         g_fanPWM = (int)doc["fan_pwm"];
-      else if (doc.containsKey("fan_speed"))
+      else if (doc.containsKey("fan_speed") || doc.containsKey("fan_spd"))
         g_fanPWM = map(g_fanSpeed, 0, 100, 0, 255);
 
       if (doc.containsKey("pump"))
@@ -657,38 +667,68 @@ void processLoRaPacket(String rawJson) {
         g_v2_mode = doc["v2_mode"] | 1;
     }
 
-    g_lastLoraReceive = millis();
-    g_cmdAckPending = false; // Đã nhận gói tin từ Node -> Hủy cờ chờ phát lại
-    g_cmdRetryCount = 0;
-
     if (type == "state") {
-      Serial.printf("[LoRa] State Sync OK: Light=%d (m=%d) Mist=%d (m=%d) Heat=%d Fan=%d Roof=%d Pump=%d\n",
+      bool cfgChanged = false;
+      if (doc.containsKey("heater_sp")) {
+        float hsp = doc["heater_sp"];
+        if (g_heaterSetpoint != hsp && hsp > 0) {
+          g_heaterSetpoint = hsp;
+          cfgChanged = true;
+        }
+      }
+      if (doc.containsKey("fan_sp")) {
+        float fsp = doc["fan_sp"];
+        if (g_fanSetpoint != fsp && fsp > 0) {
+          g_fanSetpoint = fsp;
+          cfgChanged = true;
+        }
+      }
+      if (doc.containsKey("v1_dry")) {
+        float vd = doc["v1_dry"];
+        if (g_v1_dry != vd && vd > 0) { g_v1_dry = vd; cfgChanged = true; }
+      }
+      if (doc.containsKey("v1_wet")) {
+        float vw = doc["v1_wet"];
+        if (g_v1_wet != vw && vw > 0) { g_v1_wet = vw; cfgChanged = true; }
+      }
+      if (doc.containsKey("v2_dry")) {
+        float vd2 = doc["v2_dry"];
+        if (g_v2_dry != vd2 && vd2 > 0) { g_v2_dry = vd2; cfgChanged = true; }
+      }
+      if (doc.containsKey("v2_wet")) {
+        float vw2 = doc["v2_wet"];
+        if (g_v2_wet != vw2 && vw2 > 0) { g_v2_wet = vw2; cfgChanged = true; }
+      }
+      if (cfgChanged) {
+        saveGatewayConfig();
+      }
+      Serial.printf("[LoRa] State Sync OK: Light=%d (m=%d) Mist=%d (m=%d) Heat=%d Fan=%d Roof=%d Pump=%d HeaterSP=%.1f V1Dry=%.0f V1Wet=%.0f\n",
                     g_lightRunning, g_lightManual, g_mistRunning, g_mistManual,
-                    g_heaterRunning, g_fanMode, g_roofAngle, g_pumpRunning);
+                    g_heaterRunning, g_fanMode, g_roofAngle, g_pumpRunning, g_heaterSetpoint, g_v1_dry, g_v1_wet);
       return; // Gói state chỉ chứa cơ cấu chấp hành, xử lý xong return ngay
     }
 
     // Các trường cảm biến (chỉ có trong gói type == "status")
     g_temperature = doc["temp"] | 0.0f;
     g_humidity = doc["humid"] | 0.0f;
-    g_tempExt = doc["temp_ext"] | 0.0f;
-    g_humidExt = doc["humid_ext"] | 0.0f;
+    g_tempExt = doc.containsKey("te") ? (float)doc["te"] : (doc["temp_ext"] | 0.0f);
+    g_humidExt = doc.containsKey("he") ? (float)doc["he"] : (doc["humid_ext"] | 0.0f);
     g_lightLux = doc["lux"] | 0.0f;
 
     g_soilMoisture = doc["soil"] | 0.0f;
     g_soilMoisture2 = doc["soil2"] | 0.0f;
 
-    g_pumpTime = doc["p_time"] | 0UL;
+    g_pumpTime = doc.containsKey("p_t") ? doc["p_t"].as<unsigned long>() : (doc["p_time"] | 0UL);
     g_pumpSeq = doc.containsKey("p_seq") ? doc["p_seq"].as<bool>() : true;
 
     g_v1_soil = doc.containsKey("v1_soil") ? (float)doc["v1_soil"] : g_soilMoisture;
-    g_v1_time = doc["v1_time"] | 0UL;
+    g_v1_time = doc.containsKey("v1_t") ? doc["v1_t"].as<unsigned long>() : (doc["v1_time"] | 0UL);
     g_v1_err = doc.containsKey("v1_err") ? doc["v1_err"].as<bool>() : false;
     if (doc.containsKey("v1_name"))
       g_v1_name = doc["v1_name"].as<String>();
 
     g_v2_soil = doc.containsKey("v2_soil") ? (float)doc["v2_soil"] : g_soilMoisture2;
-    g_v2_time = doc["v2_time"] | 0UL;
+    g_v2_time = doc.containsKey("v2_t") ? doc["v2_t"].as<unsigned long>() : (doc["v2_time"] | 0UL);
     g_v2_err = doc.containsKey("v2_err") ? doc["v2_err"].as<bool>() : false;
     if (doc.containsKey("v2_name"))
       g_v2_name = doc["v2_name"].as<String>();
@@ -699,9 +739,12 @@ void processLoRaPacket(String rawJson) {
       g_fanPWM = map(g_fanSpeed, 0, 100, 0, 255);
     bool cfgChanged = false;
     if (doc.containsKey("fan_sp")) {
-      if (g_fanSetpoint != (float)doc["fan_sp"]) {
-        g_fanSetpoint = doc["fan_sp"];
-        cfgChanged = true;
+      float fsp = doc["fan_sp"];
+      if (millis() - g_lastCommandTime >= 15000) {
+        if (g_fanSetpoint != fsp && fsp > 0) {
+          g_fanSetpoint = fsp;
+          cfgChanged = true;
+        }
       }
     }
 
@@ -719,21 +762,7 @@ void processLoRaPacket(String rawJson) {
       }
     }
 
-    if (doc.containsKey("v1_dry")) {
-      if (g_v1_dry != (float)doc["v1_dry"]) { g_v1_dry = doc["v1_dry"]; cfgChanged = true; }
-    }
-    if (doc.containsKey("v1_wet")) {
-      if (g_v1_wet != (float)doc["v1_wet"]) { g_v1_wet = doc["v1_wet"]; cfgChanged = true; }
-    }
-    if (doc.containsKey("v2_dry")) {
-      if (g_v2_dry != (float)doc["v2_dry"]) { g_v2_dry = doc["v2_dry"]; cfgChanged = true; }
-    }
-    if (doc.containsKey("v2_wet")) {
-      if (g_v2_wet != (float)doc["v2_wet"]) { g_v2_wet = doc["v2_wet"]; cfgChanged = true; }
-    }
-    if (doc.containsKey("heater_sp")) {
-      if (g_heaterSetpoint != (float)doc["heater_sp"]) { g_heaterSetpoint = doc["heater_sp"]; cfgChanged = true; }
-    }
+    // Các ngưỡng van, quạt, sưởi được lưu cố định trong Flash Gateway và chỉ đồng bộ qua gói 'state' (ACK) hoặc 'cfg', không bị ghi đè bởi gói status định kỳ
 
     if (cfgChanged) {
       saveGatewayConfig();
@@ -743,7 +772,7 @@ void processLoRaPacket(String rawJson) {
     g_sht30ExtOK = doc.containsKey("se_ok") ? doc["se_ok"].as<bool>() : false;
     g_bh1750OK = doc.containsKey("b_ok") ? doc["b_ok"].as<bool>() : false;
 
-    g_nodeUptime = doc["uptime"] | 0UL;
+    g_nodeUptime = doc.containsKey("up") ? doc["up"].as<unsigned long>() : (doc["uptime"] | 0UL);
 
     Serial.printf(
         "[LoRa] Status OK: T=%.1f H=%.1f L=%.0f Soil=%.1f Mist=%d (TH=%.0f) Light=%d (TH=%.0f) FanSP=%.1f\n",
@@ -784,19 +813,18 @@ void processLoRaPacket(String rawJson) {
 
 void checkLoRaMessage() {
   static String rawBuf = "";
+  static int braceCount = 0;
+  static bool inJson = false;
   static unsigned long lastPrint = 0;
   static unsigned long lastWarn = 0;
   static unsigned long lastCharTime = 0;
 
-  // 1. Timeout liên ký tự: Nếu đường truyền im lặng > 1000ms mà buffer đang dở
-  // dang
-  if (rawBuf.length() > 0 && (millis() - lastCharTime > 1000)) {
-    rawBuf.trim();
-    if (rawBuf.startsWith("{") && rawBuf.endsWith("}")) {
-      Serial.println("[LoRa RAW (Timeout)] " + rawBuf);
-      processLoRaPacket(rawBuf);
-    }
+  // Timeout dọn đệm nếu nhận dở dang quá 3000ms
+  if (inJson && (millis() - lastCharTime > 3000)) {
+    Serial.println("[LoRa RX Timeout] Huy bo: " + rawBuf);
     rawBuf = "";
+    braceCount = 0;
+    inJson = false;
   }
 
   while (LoRaSerial.available()) {
@@ -804,57 +832,39 @@ void checkLoRaMessage() {
     lastPrint = millis();
     lastCharTime = millis();
 
-    // Bỏ qua ký tự phân cách rỗng ở đầu buffer
-    if (rawBuf.length() == 0 &&
-        (c == '\r' || c == '\n' || c == ' ' || c == '\t')) {
-      continue;
-    }
-
-    // Tự động nhận diện khi gói mới bắt đầu mà gói cũ bị mất đuôi
-    if (c == '{' && rawBuf.length() > 0) {
-      if (rawBuf.indexOf("{\"type\"") != -1 && rawBuf.indexOf("}") == -1) {
-        // Gói cũ bị cụt vô tuyến -> Bỏ gói cũ, bắt đầu ngay gói mới
+    // Bắt đầu JSON khi gặp '{' (bỏ qua mọi byte rác / nhiễu vô tuyến phía trước)
+    if (c == '{') {
+      if (!inJson) {
         rawBuf = "";
+        braceCount = 0;
+        inJson = true;
       }
+      braceCount++;
     }
 
-    // Ký tự xuống dòng '\n' là điểm kết thúc gói tin do Master Node phát ra
-    if (c == '\n' || c == '\r') {
-      if (rawBuf.length() > 0) {
-        rawBuf.trim();
-        if (rawBuf.startsWith("{") && rawBuf.endsWith("}")) {
+    if (inJson) {
+      rawBuf += c;
+
+      if (c == '}') {
+        braceCount--;
+
+        // Gói JSON hoàn chỉnh khi số dấu { và } cân bằng
+        if (braceCount <= 0) {
+          inJson = false;
+          rawBuf.trim();
           Serial.println("[LoRa RAW] " + rawBuf);
           processLoRaPacket(rawBuf);
+          rawBuf = "";
+          braceCount = 0;
         }
+      }
+
+      // Bảo vệ tràn bộ đệm (chống nhiễu kéo dài không ngắt)
+      if (rawBuf.length() > 1500) {
         rawBuf = "";
+        braceCount = 0;
+        inJson = false;
       }
-      continue;
-    }
-
-    rawBuf += c;
-
-    // Nếu gặp dấu đóng ngoặc '}' cuối cùng của JSON hoàn chỉnh
-    if (c == '}' && rawBuf.startsWith("{")) {
-      // Đếm số lượng mở ngoặc và đóng ngoặc để đảm bảo JSON cân bằng
-      int openBraces = 0, closeBraces = 0;
-      for (size_t i = 0; i < rawBuf.length(); i++) {
-        if (rawBuf[i] == '{')
-          openBraces++;
-        else if (rawBuf[i] == '}')
-          closeBraces++;
-      }
-      if (openBraces > 0 && openBraces == closeBraces) {
-        rawBuf.trim();
-        Serial.println("[LoRa RAW] " + rawBuf);
-        processLoRaPacket(rawBuf);
-        rawBuf = "";
-        continue;
-      }
-    }
-
-    // Bảo vệ tràn bộ đệm (chống nhiễu kéo dài không ngắt)
-    if (rawBuf.length() > 1500) {
-      rawBuf = "";
     }
   }
 
@@ -873,19 +883,16 @@ void sendLoRaCommand(String cmdJson, bool isNewCmd) {
   cmdJson.trim();
   if (cmdJson.length() == 0) return;
 
-  // CSMA/CA (Listen-Before-Talk): Nếu cổng LoRa đang nhận dữ liệu từ Master (Master đang bắn status lên),
-  // đợi tối đa 200ms cho Master phát xong để tránh đè sóng làm hỏng cả 2 gói
-  unsigned long waitStart = millis();
-  while (LoRaSerial.available() > 0 && (millis() - waitStart < 200)) {
-    checkLoRaMessage();
+  // CSMA/CA (Listen-Before-Talk): Đợi cổng LoRa sạch dữ liệu và yên lặng ít nhất 80ms trước khi phát
+  unsigned long lastByte = millis();
+  unsigned long start = millis();
+  while ((LoRaSerial.available() > 0 || (millis() - lastByte < 80)) && (millis() - start < 1200)) {
+    if (LoRaSerial.available() > 0) {
+      checkLoRaMessage();
+      lastByte = millis();
+    }
     delay(5);
   }
-
-  cmdJson += "\n";
-  LoRaSerial.print(cmdJson);
-  LoRaSerial.flush();
-  Serial.print("[LoRa Tx] " + cmdJson);
-  g_lastCommandTime = millis();
 
   if (isNewCmd) {
     g_lastSentCmd = cmdJson;
@@ -893,6 +900,12 @@ void sendLoRaCommand(String cmdJson, bool isNewCmd) {
     g_cmdAckPending = true;
     g_cmdRetryCount = 0;
   }
+
+  cmdJson += "\n";
+  LoRaSerial.print(cmdJson);
+  LoRaSerial.flush();
+  Serial.print("[LoRa Tx] " + cmdJson);
+  g_lastCommandTime = millis();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1125,19 +1138,29 @@ void handleApiControl() {
   // -- Cấu hình ngưỡng & thời gian van tưới --
   if (webServer.hasArg("valve_cfg")) {
     int vId = webServer.arg("valve_cfg").toInt();
-    StaticJsonDocument<256> d;
-    d["cmd"] = "valve_cfg";
+    StaticJsonDocument<128> d;
+    d["cmd"] = "config"; // Chuẩn hóa dùng cmd "config" để Master Node luôn nhận diện chắc chắn
     d["id"] = vId;
-    if (webServer.hasArg("dry"))
-      d["dry"] = webServer.arg("dry").toFloat();
-    if (webServer.hasArg("wet"))
-      d["wet"] = webServer.arg("wet").toFloat();
-    if (webServer.hasArg("timeout"))
-      d["to"] = webServer.arg("timeout").toInt();
+    if (webServer.hasArg("dry")) {
+      int dryVal = (int)round(webServer.arg("dry").toFloat());
+      d["dry"] = dryVal;
+      if (vId == 1) d["v1_dry"] = dryVal;
+      else if (vId == 2) d["v2_dry"] = dryVal;
+    }
+    if (webServer.hasArg("wet")) {
+      int wetVal = (int)round(webServer.arg("wet").toFloat());
+      d["wet"] = wetVal;
+      if (vId == 1) d["v1_wet"] = wetVal;
+      else if (vId == 2) d["v2_wet"] = wetVal;
+    }
+    if (webServer.hasArg("timeout")) {
+      int toVal = webServer.arg("timeout").toInt();
+      d["to"] = toVal;
+      if (vId == 1) d["v1_to"] = toVal;
+      else if (vId == 2) d["v2_to"] = toVal;
+    }
     if (webServer.hasArg("rest"))
       d["rest"] = webServer.arg("rest").toInt();
-    if (webServer.hasArg("name"))
-      d["name"] = webServer.arg("name");
     String s;
     serializeJson(d, s);
     cmdList.push_back(s);
@@ -1479,14 +1502,12 @@ void handleApiControl() {
   if (!cmdList.empty()) {
     for (size_t i = 0; i < cmdList.size(); i++) {
       sendLoRaCommand(cmdList[i], true);
-      delay(120);
-      sendLoRaCommand(cmdList[i], false); // Phát lại lần 2 (không ghi đè timer retry)
       if (i + 1 < cmdList.size()) {
-        delay(150); // Đảm bảo E32 phát xong gói vô tuyến trước khi gửi lệnh tiếp theo
+        delay(250); // Đảm bảo E32 phát xong gói vô tuyến trước khi gửi lệnh tiếp theo
       }
     }
 
-    StaticJsonDocument<384> resDoc;
+    StaticJsonDocument<512> resDoc;
     resDoc["status"] = "success";
     resDoc["light_running"] = g_lightRunning;
     resDoc["light_manual"] = g_lightManual;
@@ -1495,16 +1516,24 @@ void handleApiControl() {
     resDoc["heater_running"] = g_heaterRunning;
     resDoc["heater_manual"] = g_heaterManual;
     resDoc["heater_pwm"] = g_heaterPWM;
+    resDoc["heater_setpoint"] = g_heaterSetpoint;
     resDoc["fan_mode"] = g_fanMode;
     resDoc["fan_speed"] = g_fanSpeed;
+    resDoc["fan_setpoint"] = g_fanSetpoint;
     resDoc["roof_angle"] = g_roofAngle;
     resDoc["roof_manual"] = g_roofManual;
     resDoc["pump_running"] = g_pumpRunning;
     resDoc["pump_manual"] = g_pumpManual;
     resDoc["v1_run"] = g_v1_run;
     resDoc["v1_mode"] = g_v1_mode;
+    resDoc["v1_dry"] = g_v1_dry;
+    resDoc["v1_wet"] = g_v1_wet;
+    resDoc["v1_to"] = g_v1_to;
     resDoc["v2_run"] = g_v2_run;
     resDoc["v2_mode"] = g_v2_mode;
+    resDoc["v2_dry"] = g_v2_dry;
+    resDoc["v2_wet"] = g_v2_wet;
+    resDoc["v2_to"] = g_v2_to;
     String resStr;
     serializeJson(resDoc, resStr);
     webServer.send(200, "application/json", resStr);

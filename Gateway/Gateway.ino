@@ -87,7 +87,7 @@ float g_lightThresh  = 1000.0;
 bool  g_heaterRunning = false;
 bool  g_heaterManual  = false;
 int   g_heaterPWM     = 0;
-float g_heaterSetpoint = 28.0;
+float g_heaterSetpoint = 28.5;
 
 int   g_roofAngle     = 0;
 bool  g_roofManual    = false;
@@ -113,12 +113,20 @@ unsigned long g_lastWifiReconn = 0;
 unsigned long g_lastLoraReceive = 0; // Thời điểm cuối cùng nhận được data từ LoRa
 unsigned long g_lastCommandTime = 0; // Thời điểm gửi lệnh điều khiển xuống Node
 
+// ─── Smart Retry: Tự động gửi lại lệnh nếu không có phản hồi ─
+String        g_lastSentCmd     = "";
+unsigned long g_lastCmdSentTime = 0;
+bool          g_cmdAckPending   = false;
+int           g_cmdRetryCount   = 0;
+
 // ═══════════════════════════════════════════════════════════════
 //  SETUP
 // ═══════════════════════════════════════════════════════════════
 void setup() {
   Serial.begin(115200);
-  while (!Serial) delay(10);
+  // Chống treo khi chạy độc lập không cắm máy tính (timeout 2.5 giây)
+  unsigned long startSerial = millis();
+  while (!Serial && (millis() - startSerial < 2500)) delay(10);
   
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
@@ -165,6 +173,21 @@ void loop() {
 
   // Đọc dữ liệu từ LoRa
   checkLoRaMessage();
+
+  // ─ Smart Retry: Tự động gửi lại lệnh nếu sau 2500ms chưa nhận phản hồi từ Master ─
+  if (g_cmdAckPending && (now - g_lastCmdSentTime >= 2500)) {
+    if (g_cmdRetryCount < 2) {
+      g_cmdRetryCount++;
+      g_lastCmdSentTime = now;
+      Serial.printf("[LoRa Retry %d] Chua nhan phan hoi -> Phat lai lenh: %s\n",
+                    g_cmdRetryCount, g_lastSentCmd.c_str());
+      sendLoRaCommand(g_lastSentCmd, false); // Gửi lại, không tạo timer mới
+    } else {
+      g_cmdAckPending = false;
+      g_cmdRetryCount = 0;
+      Serial.println("[LoRa Retry] Da phat lai 2 lan, huy cho.");
+    }
+  }
 
   // ─ WiFi watchdog ─
   if (WiFi.status() != WL_CONNECTED) {

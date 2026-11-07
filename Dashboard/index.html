@@ -258,13 +258,16 @@
           <div class="flex items-center gap-2 text-slate-300 text-sm font-semibold uppercase tracking-wider">
             <span class="text-lg">🔥</span> Đèn Sưởi
           </div>
-          <span id="heater-badge"
-            class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-slate-400 font-medium">Chế độ: <span id="heater-mode" class="font-semibold text-slate-300">AUTO</span></span>
+            <span id="heater-badge"
+              class="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-slate-700/50 text-slate-500 border-slate-600/50">OFF</span>
+          </div>
         </div>
 
         <div>
           <div class="flex justify-between items-end mb-2">
-            <div class="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Thanh công suất sưởi</div>
+            <div class="text-[11px] uppercase tracking-wider text-slate-500 font-medium">Trạng thái: <span id="heater-state" class="font-bold text-slate-400">TẮT</span></div>
             <div class="text-2xl font-bold text-white flex items-baseline gap-1">
               <span id="heater-power">0</span><span class="text-xs text-slate-500">%</span>
             </div>
@@ -314,7 +317,7 @@
           <div class="flex gap-3 items-end">
             <div class="flex-1">
               <label class="block text-[11px] uppercase tracking-wider font-medium text-slate-500 mb-1.5">Ngưỡng bật sưởi (°C)</label>
-              <input type="number" step="0.5" id="cfg-heater"
+              <input type="number" step="0.5" id="cfg-heater" placeholder="28.5"
                 class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all shadow-inner"
                 onkeydown="if(event.key==='Enter') saveConfig('heater')">
             </div>
@@ -849,6 +852,94 @@
 
       const isLocked = pumpState.emergencyStop;
 
+      // Cập nhật DOM in-place nếu các card van đã tồn tại để KHÔNG làm mất focus / reset giá trị input khi người dùng đang gõ
+      const existingCards = container.querySelectorAll('[id^="valve-card-"]');
+      if (existingCards.length === valvesData.length) {
+        valvesData.forEach(v => {
+          const card = document.getElementById(`valve-card-${v.id}`);
+          if (!card) return;
+
+          card.className = `bg-slate-900/70 border ${v.running ? 'border-cyan-500/70 ring-1 ring-cyan-500/40 shadow-lg shadow-cyan-500/10' : 'border-slate-700/60'} rounded-2xl p-4 md:p-5 relative transition-all duration-300 ${isLocked ? 'opacity-40 pointer-events-none filter grayscale-[0.3]' : ''}`;
+
+          let badgeText = 'DỪNG';
+          let badgeClass = 'bg-slate-700/50 text-slate-400 border-slate-600/50';
+          if (v.error) {
+            badgeText = 'LỖI SENSOR';
+            badgeClass = 'bg-red-500/20 text-red-400 border-red-500/40 animate-pulse font-bold';
+          } else if (v.running) {
+            badgeText = 'ĐANG TƯỚI';
+            badgeClass = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 animate-pulse font-bold';
+          } else if (v.mode === 1) {
+            badgeText = 'AUTO (CHỜ)';
+            badgeClass = 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30 font-semibold';
+          }
+
+          const badgeEl = document.getElementById(`v-badge-${v.id}`);
+          if (badgeEl) {
+            badgeEl.textContent = badgeText;
+            badgeEl.className = `px-2.5 py-1 rounded-lg text-[11px] font-bold border ${badgeClass}`;
+          }
+
+          const nameEl = document.getElementById(`v-name-${v.id}`);
+          if (nameEl && v.name) nameEl.textContent = v.name;
+
+          const soilEl = document.getElementById(`v-soil-${v.id}`);
+          if (soilEl) {
+            soilEl.textContent = v.error ? '--' : Number(v.soil).toFixed(1);
+            soilEl.className = `text-2xl font-bold ${v.error ? 'text-red-400' : 'text-white'} font-mono`;
+          }
+
+          const soilPct = Math.min(100, Math.max(0, v.soil));
+          let barColor = 'from-red-500 to-amber-500';
+          if (soilPct >= v.wet) barColor = 'from-cyan-500 to-blue-500';
+          else if (soilPct >= v.dry) barColor = 'from-emerald-500 to-teal-500';
+
+          const barEl = document.getElementById(`v-bar-${v.id}`);
+          if (barEl) {
+            barEl.style.width = `${v.error ? 0 : soilPct}%`;
+            barEl.className = `h-full rounded-full transition-all duration-500 bg-gradient-to-r ${barColor}`;
+          }
+
+          const dryMark = document.getElementById(`v-dry-mark-${v.id}`);
+          if (dryMark) {
+            dryMark.style.left = `${v.dry}%`;
+            dryMark.title = `Ngưỡng Khô (${v.dry}%)`;
+          }
+          const wetMark = document.getElementById(`v-wet-mark-${v.id}`);
+          if (wetMark) {
+            wetMark.style.left = `${v.wet}%`;
+            wetMark.title = `Ngưỡng Ẩm (${v.wet}%)`;
+          }
+
+          const dryLbl = document.getElementById(`v-dry-lbl-${v.id}`);
+          if (dryLbl) dryLbl.innerHTML = `◀ Khô: &lt; ${v.dry}%`;
+          const wetLbl = document.getElementById(`v-wet-lbl-${v.id}`);
+          if (wetLbl) wetLbl.innerHTML = `Ẩm: &gt; ${v.wet}% ▶`;
+          const rtLbl = document.getElementById(`v-runtime-lbl-${v.id}`);
+          if (rtLbl) rtLbl.innerHTML = `Đã tưới: <b class="text-slate-200 font-mono">${v.running ? v.runtime + 's' : '0s'}</b> / ${v.timeout}s`;
+
+          // Cập nhật 3 nút mode
+          const btnAuto = document.getElementById(`v-btn-auto-${v.id}`);
+          const btnOn = document.getElementById(`v-btn-on-${v.id}`);
+          const btnOff = document.getElementById(`v-btn-off-${v.id}`);
+          if (btnAuto) btnAuto.className = `py-2 rounded-xl border text-xs font-bold transition-all shadow-sm ${v.mode === 1 ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50 ring-1 ring-indigo-500/30' : 'bg-slate-800 text-slate-400 border-slate-700/60 hover:bg-slate-750'}`;
+          if (btnOn) btnOn.className = `py-2 rounded-xl border text-xs font-bold transition-all shadow-sm ${v.mode === 2 ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/50 ring-1 ring-cyan-500/30' : 'bg-slate-800 text-slate-400 border-slate-700/60 hover:bg-slate-750'}`;
+          if (btnOff) btnOff.className = `py-2 rounded-xl border text-xs font-bold transition-all shadow-sm ${v.mode === 0 ? 'bg-red-500/20 text-red-400 border-red-500/50 ring-1 ring-red-500/30' : 'bg-slate-800 text-slate-400 border-slate-700/60 hover:bg-slate-750'}`;
+
+          // Chỉ cập nhật giá trị vào ô input nếu người dùng KHÔNG đang nhập liệu vào bất kỳ ô input nào của card van này
+          const inDry = document.getElementById(`v-in-dry-${v.id}`);
+          const inWet = document.getElementById(`v-in-wet-${v.id}`);
+          const inTo = document.getElementById(`v-in-to-${v.id}`);
+          const isEditingThisCard = document.activeElement && (document.activeElement === inDry || document.activeElement === inWet || document.activeElement === inTo);
+          if (!isEditingThisCard) {
+            if (inDry) inDry.value = v.dry;
+            if (inWet) inWet.value = v.wet;
+            if (inTo) inTo.value = v.timeout;
+          }
+        });
+        return;
+      }
+
       container.innerHTML = valvesData.map(v => {
         let badgeText = 'DỪNG';
         let badgeClass = 'bg-slate-700/50 text-slate-400 border-slate-600/50';
@@ -918,15 +1009,15 @@
                 <div id="v-bar-${v.id}" class="h-full rounded-full transition-all duration-500 bg-gradient-to-r ${barColor}" style="width: ${v.error ? 0 : soilPct}%"></div>
                 
                 <!-- Vạch đánh dấu ngưỡng Khô -->
-                <div class="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 shadow" style="left: ${v.dry}%" title="Ngưỡng Khô (${v.dry}%)"></div>
+                <div id="v-dry-mark-${v.id}" class="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 shadow" style="left: ${v.dry}%" title="Ngưỡng Khô (${v.dry}%)"></div>
                 <!-- Vạch đánh dấu ngưỡng Ẩm -->
-                <div class="absolute top-0 bottom-0 w-0.5 bg-cyan-400 z-10 shadow" style="left: ${v.wet}%" title="Ngưỡng Ẩm (${v.wet}%)"></div>
+                <div id="v-wet-mark-${v.id}" class="absolute top-0 bottom-0 w-0.5 bg-cyan-400 z-10 shadow" style="left: ${v.wet}%" title="Ngưỡng Ẩm (${v.wet}%)"></div>
               </div>
 
               <div class="flex justify-between items-center text-[10px] text-slate-400 font-medium pt-1">
-                <span class="text-amber-400 flex items-center gap-0.5">◀ Khô: &lt; ${v.dry}%</span>
-                <span class="text-slate-400">Đã tưới: <b class="text-slate-200 font-mono">${v.running ? v.runtime + 's' : '0s'}</b> / ${v.timeout}s</span>
-                <span class="text-cyan-400 flex items-center gap-0.5">Ẩm: &gt; ${v.wet}% ▶</span>
+                <span id="v-dry-lbl-${v.id}" class="text-amber-400 flex items-center gap-0.5">◀ Khô: &lt; ${v.dry}%</span>
+                <span id="v-runtime-lbl-${v.id}" class="text-slate-400">Đã tưới: <b class="text-slate-200 font-mono">${v.running ? v.runtime + 's' : '0s'}</b> / ${v.timeout}s</span>
+                <span id="v-wet-lbl-${v.id}" class="text-cyan-400 flex items-center gap-0.5">Ẩm: &gt; ${v.wet}% ▶</span>
               </div>
             </div>
 
@@ -1071,17 +1162,30 @@
     }
 
     async function saveValveConfig(valveId) {
-      const dryVal = parseFloat(document.getElementById(`v-in-dry-${valveId}`).value);
-      const wetVal = parseFloat(document.getElementById(`v-in-wet-${valveId}`).value);
-      const toVal = parseInt(document.getElementById(`v-in-to-${valveId}`).value);
+      const inDry = document.getElementById(`v-in-dry-${valveId}`);
+      const inWet = document.getElementById(`v-in-wet-${valveId}`);
+      const inTo = document.getElementById(`v-in-to-${valveId}`);
+      const dryVal = inDry ? parseFloat(inDry.value) : 40;
+      const wetVal = inWet ? parseFloat(inWet.value) : 65;
+      const toVal = inTo ? parseInt(inTo.value) : 300;
       const v = valvesData.find(x => x.id === valveId);
       if (v) {
         v.dry = dryVal;
         v.wet = wetVal;
         v.timeout = toVal;
       }
+      renderValves();
       await ctrl({ valve_cfg: valveId, dry: dryVal, wet: wetVal, timeout: toVal, name: v ? v.name : `Van ${valveId}` });
-      alert(`Đã lưu cấu hình cho ${v ? v.name : 'Van ' + valveId}!`);
+      const btn = document.querySelector(`button[onclick*="saveValveConfig(${valveId})"]`);
+      if (btn) {
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = '<span>✅</span> Đã lưu cấu hình!';
+        btn.classList.add('bg-emerald-500/30', 'text-emerald-300', 'border-emerald-500/60');
+        setTimeout(() => {
+          btn.innerHTML = origHtml;
+          btn.classList.remove('bg-emerald-500/30', 'text-emerald-300', 'border-emerald-500/60');
+        }, 1800);
+      }
       renderValves();
     }
 
@@ -1238,9 +1342,9 @@
         document.getElementById('fan-speed').textContent = d.fan_speed;
         document.getElementById('fan-bar').style.width = d.fan_speed + '%';
         document.getElementById('fan-pwm').textContent = d.fan_pwm;
-        if (document.activeElement.id !== 'cfg-fan') document.getElementById('cfg-fan').value = d.fan_setpoint.toFixed(1);
-        if (d.fan_setpoint !== undefined && d.fan_setpoint !== null && document.getElementById('fan-thresh-display')) {
-          document.getElementById('fan-thresh-display').textContent = Number(d.fan_setpoint).toFixed(1);
+        if (d.fan_setpoint !== undefined && d.fan_setpoint !== null) {
+          if (document.activeElement.id !== 'cfg-fan') document.getElementById('cfg-fan').value = Number(d.fan_setpoint).toFixed(1);
+          if (document.getElementById('fan-thresh-display')) document.getElementById('fan-thresh-display').textContent = Number(d.fan_setpoint).toFixed(1);
         }
 
         updateActiveBtn('fan', d.fan_mode, 3);
@@ -1297,9 +1401,12 @@
         else valvesData[0].soil = d.soil || 0;
         if (d.v1_run !== undefined) valvesData[0].running = d.v1_run;
         if (d.v1_mode !== undefined) valvesData[0].mode = d.v1_mode;
-        if (d.v1_dry !== undefined && document.activeElement.id !== 'v-in-dry-1') valvesData[0].dry = d.v1_dry;
-        if (d.v1_wet !== undefined && document.activeElement.id !== 'v-in-wet-1') valvesData[0].wet = d.v1_wet;
-        if (d.v1_to !== undefined && document.activeElement.id !== 'v-in-to-1') valvesData[0].timeout = d.v1_to;
+        const isEditingV1 = document.activeElement && (document.activeElement.id === 'v-in-dry-1' || document.activeElement.id === 'v-in-wet-1' || document.activeElement.id === 'v-in-to-1');
+        if (!isEditingV1) {
+          if (d.v1_dry !== undefined) valvesData[0].dry = d.v1_dry;
+          if (d.v1_wet !== undefined) valvesData[0].wet = d.v1_wet;
+          if (d.v1_to !== undefined) valvesData[0].timeout = d.v1_to;
+        }
         if (d.v1_time !== undefined) valvesData[0].runtime = d.v1_time;
         if (d.v1_err !== undefined) valvesData[0].error = d.v1_err;
         if (d.v1_name && d.v1_name.length > 0) valvesData[0].name = d.v1_name;
@@ -1308,9 +1415,12 @@
         else valvesData[1].soil = d.soil2 || 0;
         if (d.v2_run !== undefined) valvesData[1].running = d.v2_run;
         if (d.v2_mode !== undefined) valvesData[1].mode = d.v2_mode;
-        if (d.v2_dry !== undefined && document.activeElement.id !== 'v-in-dry-2') valvesData[1].dry = d.v2_dry;
-        if (d.v2_wet !== undefined && document.activeElement.id !== 'v-in-wet-2') valvesData[1].wet = d.v2_wet;
-        if (d.v2_to !== undefined && document.activeElement.id !== 'v-in-to-2') valvesData[1].timeout = d.v2_to;
+        const isEditingV2 = document.activeElement && (document.activeElement.id === 'v-in-dry-2' || document.activeElement.id === 'v-in-wet-2' || document.activeElement.id === 'v-in-to-2');
+        if (!isEditingV2) {
+          if (d.v2_dry !== undefined) valvesData[1].dry = d.v2_dry;
+          if (d.v2_wet !== undefined) valvesData[1].wet = d.v2_wet;
+          if (d.v2_to !== undefined) valvesData[1].timeout = d.v2_to;
+        }
         if (d.v2_time !== undefined) valvesData[1].runtime = d.v2_time;
         if (d.v2_err !== undefined) valvesData[1].error = d.v2_err;
         if (d.v2_name && d.v2_name.length > 0) valvesData[1].name = d.v2_name;
@@ -1389,12 +1499,14 @@
         if (heaterEl) {
           heaterEl.textContent = hr ? (d.heater_manual ? `BẬT (${hPercent}%)` : 'BẬT') : 'TẮT';
           heaterEl.className = `font-bold ${hr ? 'text-orange-400' : 'text-slate-400'}`;
-          updateBadge('heater-badge', hr ? 'ON' : 'OFF', hr ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
-          document.getElementById('heater-mode').textContent = d.heater_manual ? 'TAY' : 'AUTO';
-          if (document.getElementById('heater-pwm')) document.getElementById('heater-pwm').textContent = hpwm;
-          if (document.getElementById('heater-power')) document.getElementById('heater-power').textContent = hPercent;
-          if (document.getElementById('heater-bar')) document.getElementById('heater-bar').style.width = `${hPercent}%`;
         }
+        updateBadge('heater-badge', hr ? 'ON' : 'OFF', hr ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+        if (document.getElementById('heater-mode')) {
+          document.getElementById('heater-mode').textContent = d.heater_manual ? 'TAY' : 'AUTO';
+        }
+        if (document.getElementById('heater-pwm')) document.getElementById('heater-pwm').textContent = hpwm;
+        if (document.getElementById('heater-power')) document.getElementById('heater-power').textContent = hPercent;
+        if (document.getElementById('heater-bar')) document.getElementById('heater-bar').style.width = `${hPercent}%`;
 
         if (d.heater_setpoint !== undefined && d.heater_setpoint !== null) {
           if (document.getElementById('heater-thresh-display')) document.getElementById('heater-thresh-display').textContent = Number(d.heater_setpoint).toFixed(1);
@@ -1608,11 +1720,26 @@
         const heaterEl = document.getElementById('heater-state');
         if (heaterEl) {
           heaterEl.textContent = hr ? (d.heater_manual ? `BẬT (${hPercent}%)` : 'BẬT') : 'TẮT';
-          heaterEl.className = `font-bold ${hr ? 'text-red-400' : 'text-slate-400'}`;
+          heaterEl.className = `font-bold ${hr ? 'text-orange-400' : 'text-slate-400'}`;
         }
-        updateBadge('heater-badge', hr ? 'ON' : 'OFF', hr ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
+        updateBadge('heater-badge', hr ? 'ON' : 'OFF', hr ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-slate-700/50 text-slate-500 border-slate-600/50');
         const hmEl = document.getElementById('heater-mode');
         if (hmEl) hmEl.textContent = d.heater_manual ? 'TAY' : 'AUTO';
+        if (document.getElementById('heater-pwm')) document.getElementById('heater-pwm').textContent = hpwm;
+        if (document.getElementById('heater-power')) document.getElementById('heater-power').textContent = hPercent;
+        if (document.getElementById('heater-bar')) document.getElementById('heater-bar').style.width = `${hPercent}%`;
+      }
+      if (d.heater_setpoint !== undefined && d.heater_setpoint !== null) {
+        if (document.getElementById('heater-thresh-display')) document.getElementById('heater-thresh-display').textContent = Number(d.heater_setpoint).toFixed(1);
+        if (document.activeElement.id !== 'cfg-heater') document.getElementById('cfg-heater').value = Number(d.heater_setpoint).toFixed(1);
+      }
+      if (d.setpoint !== undefined && d.setpoint !== null) {
+        if (document.getElementById('fan-thresh-display')) document.getElementById('fan-thresh-display').textContent = Number(d.setpoint).toFixed(1);
+        if (document.activeElement.id !== 'cfg-fan') document.getElementById('cfg-fan').value = Number(d.setpoint).toFixed(1);
+      }
+      if (d.fan_setpoint !== undefined && d.fan_setpoint !== null) {
+        if (document.getElementById('fan-thresh-display')) document.getElementById('fan-thresh-display').textContent = Number(d.fan_setpoint).toFixed(1);
+        if (document.activeElement.id !== 'cfg-fan') document.getElementById('cfg-fan').value = Number(d.fan_setpoint).toFixed(1);
       }
       if (d.roof_angle !== undefined) {
         const ra = d.roof_angle;
@@ -1627,6 +1754,13 @@
         const rmEl = document.getElementById('roof-mode');
         if (rmEl) rmEl.textContent = d.roof_manual ? 'TAY' : 'AUTO';
       }
+      if (d.v1_dry !== undefined) valvesData[0].dry = d.v1_dry;
+      if (d.v1_wet !== undefined) valvesData[0].wet = d.v1_wet;
+      if (d.v1_to !== undefined) valvesData[0].timeout = d.v1_to;
+      if (d.v2_dry !== undefined) valvesData[1].dry = d.v2_dry;
+      if (d.v2_wet !== undefined) valvesData[1].wet = d.v2_wet;
+      if (d.v2_to !== undefined) valvesData[1].timeout = d.v2_to;
+      renderValves();
     }
 
     let ctrlQueue = Promise.resolve();

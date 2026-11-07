@@ -52,7 +52,7 @@ void setCorsHeaders() {
 }
 
 void handleApiStatus() {
-  StaticJsonDocument<1536> doc;
+  StaticJsonDocument<2048> doc;
 
   // Dữ liệu mới nhất lưu ở Gateway
   doc["temperature"] = g_temperature;
@@ -144,7 +144,7 @@ void handleApiStatus() {
   getTimestamp(timeStr, sizeof(timeStr));
   doc["timestamp"] = timeStr;
 
-  char buf[1536];
+  char buf[2048];
   serializeJson(doc, buf);
 
   setCorsHeaders();
@@ -218,18 +218,28 @@ void handleApiControl() {
   // -- Cấu hình ngưỡng & thời gian van tưới --
   if (webServer.hasArg("valve_cfg")) {
     int vId = webServer.arg("valve_cfg").toInt();
-    loraDoc["cmd"] = "valve_cfg";
+    loraDoc["cmd"] = "config";
     loraDoc["id"] = vId;
-    if (webServer.hasArg("dry"))
-      loraDoc["dry"] = webServer.arg("dry").toFloat();
-    if (webServer.hasArg("wet"))
-      loraDoc["wet"] = webServer.arg("wet").toFloat();
-    if (webServer.hasArg("timeout"))
-      loraDoc["to"] = webServer.arg("timeout").toInt();
+    if (webServer.hasArg("dry")) {
+      int dryVal = (int)round(webServer.arg("dry").toFloat());
+      loraDoc["dry"] = dryVal;
+      if (vId == 1) loraDoc["v1_dry"] = dryVal;
+      else if (vId == 2) loraDoc["v2_dry"] = dryVal;
+    }
+    if (webServer.hasArg("wet")) {
+      int wetVal = (int)round(webServer.arg("wet").toFloat());
+      loraDoc["wet"] = wetVal;
+      if (vId == 1) loraDoc["v1_wet"] = wetVal;
+      else if (vId == 2) loraDoc["v2_wet"] = wetVal;
+    }
+    if (webServer.hasArg("timeout")) {
+      int toVal = webServer.arg("timeout").toInt();
+      loraDoc["to"] = toVal;
+      if (vId == 1) loraDoc["v1_to"] = toVal;
+      else if (vId == 2) loraDoc["v2_to"] = toVal;
+    }
     if (webServer.hasArg("rest"))
       loraDoc["rest"] = webServer.arg("rest").toInt();
-    if (webServer.hasArg("name"))
-      loraDoc["name"] = webServer.arg("name");
     hasCmd = true;
 
     if (vId == 1) {
@@ -456,9 +466,9 @@ void handleApiControl() {
   if (hasCmd) {
     String loraStr;
     serializeJson(loraDoc, loraStr);
-    sendLoRaCommand(loraStr);
+    sendLoRaCommand(loraStr, true);  // Lần 1: Lệnh mới, bật Smart Retry
     delay(80);
-    sendLoRaCommand(loraStr); // Phát đúp 2 lần chống va chạm sóng/rớt gói trên không
+    sendLoRaCommand(loraStr, false); // Lần 2: Phát đúp chống rớt gói, không reset Smart Retry
 
     // ─── Cập nhật trạng thái Gateway ngay lập tức (không đợi Node xác nhận)
     // ─── Điều này đảm bảo Web poll 1 giây sau sẽ nhận được state đúng
@@ -575,7 +585,7 @@ void handleApiControl() {
         g_lightThresh = loraDoc["light_th"];
     }
 
-    StaticJsonDocument<384> resDoc;
+    StaticJsonDocument<512> resDoc;
     resDoc["status"] = "success";
     resDoc["light_running"] = g_lightRunning;
     resDoc["light_manual"] = g_lightManual;
@@ -584,16 +594,24 @@ void handleApiControl() {
     resDoc["heater_running"] = g_heaterRunning;
     resDoc["heater_manual"] = g_heaterManual;
     resDoc["heater_pwm"] = g_heaterPWM;
+    resDoc["heater_setpoint"] = g_heaterSetpoint;
     resDoc["fan_mode"] = g_fanMode;
     resDoc["fan_speed"] = g_fanSpeed;
+    resDoc["fan_setpoint"] = g_fanSetpoint;
     resDoc["roof_angle"] = g_roofAngle;
     resDoc["roof_manual"] = g_roofManual;
     resDoc["pump_running"] = g_pumpRunning;
     resDoc["pump_manual"] = g_pumpManual;
     resDoc["v1_run"] = g_v1_run;
     resDoc["v1_mode"] = g_v1_mode;
+    resDoc["v1_dry"] = g_v1_dry;
+    resDoc["v1_wet"] = g_v1_wet;
+    resDoc["v1_to"] = g_v1_to;
     resDoc["v2_run"] = g_v2_run;
     resDoc["v2_mode"] = g_v2_mode;
+    resDoc["v2_dry"] = g_v2_dry;
+    resDoc["v2_wet"] = g_v2_wet;
+    resDoc["v2_to"] = g_v2_to;
     String resStr;
     serializeJson(resDoc, resStr);
     webServer.send(200, "application/json", resStr);
