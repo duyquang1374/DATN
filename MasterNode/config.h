@@ -79,8 +79,11 @@ extern unsigned long g_mistStartTime;
 // ─── CHUYỂN ĐỔI CHÂN AN TOÀN CHO VAN TƯỚI VÀ SERVO MÁI CHE ───
 #define VALVE1_PIN 26 // Relay Van điện từ 1 - Luống 1 (Chuyển sang GPIO 26 an toàn)
 #define VALVE2_PIN 13 // Relay Van điện từ 2 - Luống 2 (Chuyển sang GPIO 13 an toàn)
-#define SERVO_PIN 25 // Tín hiệu Servo mở rèm mái che (Chuyển sang GPIO 25, tránh kẹt boot chân
-     // 0)
+#define SERVO_PIN      25 // Tín hiệu Servo 1 mở rèm mái che (Thuận chiều - GPIO 25)
+#define SERVO_2_PIN    12 // Tín hiệu Servo 2 mở rèm mái che (Ngược chiều - GPIO 12)
+#define ROOF_MAX_ANGLE 75 // Góc mở tối đa của rèm chớp (75 độ = 100%)
+// Quy đổi góc rèm (0 - 75 độ) sang phần trăm mở (0 - 100%), làm tròn. VD: 10 độ -> 13%
+#define ROOF_ANGLE_TO_PCT(a) ((int)(((a) * 100 + ROOF_MAX_ANGLE / 2) / ROOF_MAX_ANGLE))
 
 // ─────────────────────────────────────────────────────────────
 //  8. CẢM BIẾN ĐỘ ẨM ĐẤT (WSN DISTRIBUTED SENSING)

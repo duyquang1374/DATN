@@ -38,7 +38,9 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
     // Ghi chú: ĐÃ BỎ LED & Nút Rèm để giải phóng GPIO 0, 1, 3 nạp code an toàn
 
 // ─────────────────────────────────────────────────────────────
-//  4. BIẾN TRỞ XOAY ĐIỀU CHỈNH GÓC MỞ RÈM CỬA (0° - 180°)
+//  4. BIẾN TRỞ XOAY ĐIỀU CHỈNH GÓC MỞ RÈM CỬA (0 - 75 độ = 0 - 100%)
+//  - Xoay hết cỡ biến trở = 100% = 75 độ (khớp ROOF_MAX_ANGLE bên Master)
+//  - LCD hiển thị theo %: VD 10 độ -> 13%
 //  - Chân giữa biến trở vào GPIO 34 (ADC1_CH6, Input-only an toàn tuyệt đối)
 //  - 2 chân ngoài nối 3.3V và GND
 //  - Đặt ENABLE_POT_ROOF = false khi CHƯA cắm biến trở (chống thả nổi ADC làm
@@ -47,6 +49,9 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 #define ENABLE_POT_ROOF                                                        \
   true // =true: Đã cắm biến trở | =false: Chưa cắm (tránh thả nổi ADC)
 #define POT_ROOF_PIN 34
+#define ROOF_MAX_ANGLE 70 // Góc mở tối đa rèm (PHẢI trùng ROOF_MAX_ANGLE trong MasterNode/config.h = 70 độ)
+// Quy đổi góc rèm (0 - 75 độ) sang phần trăm mở (0 - 100%), làm tròn
+#define ROOF_ANGLE_TO_PCT(a) ((int)(((a) * 100 + ROOF_MAX_ANGLE / 2) / ROOF_MAX_ANGLE))
 
 // Mảng chân GPIO 5 Nút bấm (Cấu hình INPUT_PULLUP nội, nhấn xuống nối GND)
 const int BTNS[NUM_BUTTONS] = {13, 14, 27, 26, 15};
@@ -185,7 +190,7 @@ void loop() {
     lastButtonReading[i] = reading;
   }
 
-  // ─── 3. ĐỌC BIẾN TRỞ VÀ ĐIỀU CHỈNH GÓC MỞ RÈM CỬA BẰNG TAY (0° - 180°) ───
+  // ─── 3. ĐỌC BIẾN TRỞ VÀ ĐIỀU CHỈNH GÓC MỞ RÈM CỬA BẰNG TAY (0 - 75 độ) ───
 #if ENABLE_POT_ROOF
   if (now - lastPotSampleTime >=
       35) { // Lấy mẫu 35ms (~28 lần/giây: mượt mà, bám sát tay xoay)
@@ -205,9 +210,9 @@ void loop() {
     else
       smoothedPot = (smoothedPot * 0.75f) + (raw * 0.25f);
 
-    // Ánh xạ ADC sang góc 0° - 180° (~22 đơn vị ADC / 1 độ)
-    int targetAngle = map((int)smoothedPot, 40, 4050, 0, 180);
-    targetAngle = constrain(targetAngle, 0, 180);
+    // Ánh xạ ADC sang góc 0 - 75 độ (xoay hết cỡ = 100% = 75 độ, ~53 đơn vị ADC / 1 độ)
+    int targetAngle = map((int)smoothedPot, 40, 4050, 0, ROOF_MAX_ANGLE);
+    targetAngle = constrain(targetAngle, 0, ROOF_MAX_ANGLE);
 
     // Vùng chết Deadband 1°: Bám sát từng độ xoay, servo chuyển động liên tục
     // không giật khấc
@@ -397,10 +402,11 @@ void updateLCDRow3() {
   lcd.setCursor(0, 2);
   char buf3[21];
   if (g_lastLux >= 0) {
-    snprintf(buf3, sizeof(buf3), "Lux:%4.0flx |Rem:%3d ", g_lastLux,
-             currentRoofAngle);
+    snprintf(buf3, sizeof(buf3), "Lux:%4.0flx |Rem:%3d%%", g_lastLux,
+             ROOF_ANGLE_TO_PCT(currentRoofAngle));
   } else {
-    snprintf(buf3, sizeof(buf3), "Lux:---- |Rem:%3d ", currentRoofAngle);
+    snprintf(buf3, sizeof(buf3), "Lux:----   |Rem:%3d%%",
+             ROOF_ANGLE_TO_PCT(currentRoofAngle));
   }
   lcd.print(buf3);
 }

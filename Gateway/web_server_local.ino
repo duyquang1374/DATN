@@ -563,10 +563,16 @@ void handleApiControl() {
       }
     }
     if (cmd == "fan") {
-      if (loraDoc.containsKey("mode"))
+      if (loraDoc.containsKey("mode")) {
         g_fanMode = loraDoc["mode"];
+        if (g_fanMode == 0) { // TẮT -> tốc độ & PWM về 0 ngay trên Web
+          g_fanSpeed = 0;
+          g_fanPWM = 0;
+        }
+      }
       if (loraDoc.containsKey("speed")) {
         int spd = loraDoc["speed"];
+        g_fanPWM = constrain(spd, 0, 255); // Đồng bộ PWM với mức tốc độ vừa chọn
         if (spd == 0) g_fanSpeed = 0;
         else if (spd <= 125) g_fanSpeed = 40;
         else if (spd <= 180) g_fanSpeed = 60;

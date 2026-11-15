@@ -654,10 +654,14 @@ void initRoof() {
   // (Timer 0 đã dùng cho Quạt 20kHz, Timer 1 đã dùng cho Bóng sưởi 1kHz)
   ESP32PWM::allocateTimer(2);
   ESP32PWM::allocateTimer(3);
-  roofServo.setPeriodHertz(50); // Tần số chuẩn 50Hz cho servo
-  int ch = roofServo.attach(SERVO_PIN, 500, 2400); // 500us - 2400us cho góc 0° - 180°
-  Serial.printf("[SERVO] Khoi tao Servo GPIO %d (Channel: %d, Attached: %d)\n",
-                SERVO_PIN, ch, roofServo.attached());
+  roofServo.setPeriodHertz(50); // Tần số chuẩn 50Hz cho servo 1
+  roofServo2.setPeriodHertz(50); // Tần số chuẩn 50Hz cho servo 2
+  int ch1 = roofServo.attach(SERVO_PIN, 500, 2400); // 500us - 2400us cho góc 0° - 180°
+  int ch2 = roofServo2.attach(SERVO_2_PIN, 500, 2400);
+  Serial.printf("[SERVO] Khoi tao Servo 1 (Thuan) GPIO %d (Channel: %d, Attached: %d)\n",
+                SERVO_PIN, ch1, roofServo.attached());
+  Serial.printf("[SERVO] Khoi tao Servo 2 (Nguoc) GPIO %d (Channel: %d, Attached: %d)\n",
+                SERVO_2_PIN, ch2, roofServo2.attached());
   setRoofAngle(0); // Đóng mái
 }
 
@@ -667,24 +671,35 @@ void updateRoof() {
   if (!g_sht30OK || isnan(g_temperature))
     return;
   // Bật quạt thì mở mái (chỉ mở khi quá nóng)
-  if (g_temperature > g_fanSetpoint + 2.0 && g_roofAngle != 180) {
-    setRoofAngle(180);
+  if (g_temperature > g_fanSetpoint + 2.0 && g_roofAngle != ROOF_MAX_ANGLE) {
+    setRoofAngle(ROOF_MAX_ANGLE);
   } else if (g_temperature <= g_fanSetpoint && g_roofAngle != 0) {
     setRoofAngle(0);
   }
 }
 
 void setRoofAngle(int angle) {
-  angle = constrain(angle, 0, 180);
+  angle = constrain(angle, 0, ROOF_MAX_ANGLE);
+  int angle1 = angle;                      // Servo 1 (Thuận): 0 -> 75
+  int angle2 = ROOF_MAX_ANGLE - angle;     // Servo 2 (Ngược): 75 -> 0
+
   if (roofServo.attached()) {
-    roofServo.write(angle);
+    roofServo.write(angle1);
   } else {
-    Serial.printf("[SERVO WARN] Servo chua attach vao GPIO %d!\n", SERVO_PIN);
+    Serial.printf("[SERVO WARN] Servo 1 chua attach vao GPIO %d!\n", SERVO_PIN);
   }
+
+  if (roofServo2.attached()) {
+    roofServo2.write(angle2);
+  } else {
+    Serial.printf("[SERVO WARN] Servo 2 chua attach vao GPIO %d!\n", SERVO_2_PIN);
+  }
+
   static int s_lastPrintedAngle = -1;
-  if (abs(angle - s_lastPrintedAngle) >= 15 || (angle == 0 && s_lastPrintedAngle != 0) || (angle == 180 && s_lastPrintedAngle != 180)) {
+  if (abs(angle - s_lastPrintedAngle) >= 15 || (angle == 0 && s_lastPrintedAngle != 0) || (angle == ROOF_MAX_ANGLE && s_lastPrintedAngle != ROOF_MAX_ANGLE)) {
     s_lastPrintedAngle = angle;
-    Serial.printf("[SERVO] Goc mai: %d do\n", angle);
+    Serial.printf("[SERVO] Rem mo: %d%% (%d do | Servo 1: %d do, Servo 2 Nguoc: %d do)\n",
+                  ROOF_ANGLE_TO_PCT(angle), angle, angle1, angle2);
   }
   g_roofAngle = angle;
 }

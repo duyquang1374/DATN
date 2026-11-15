@@ -39,8 +39,8 @@
 // ─────────────────────────────────────────────────────────────
 //  1. CẤU HÌNH WIFI & MẠNG
 // ─────────────────────────────────────────────────────────────
-#define WIFI_SSID "Xoi Banh My Chi Nga"
-#define WIFI_PASSWORD "13071982"
+#define WIFI_SSID "..."
+#define WIFI_PASSWORD "29032006"
 
 // ─────────────────────────────────────────────────────────────
 //  2. CẤU HÌNH GIAO THỨC MQTT (TÙY CHỌN BROKER TRUNG TÂM)
@@ -811,6 +811,26 @@ void processLoRaPacket(String rawJson) {
   }
 }
 
+// ─── LỌC GÓI NHỊ PHÂN CỦA MẠNG CẢM BIẾN (WSN) LẪN VÀO LUỒNG JSON ───
+// Gateway cùng kênh LoRa nên cũng nghe được gói SensorPacket (13B, header 0xAA)
+// của Sensor Node và gói ACK (4B, header 0x55) mà Master Node trả lời Node.
+// Gói Sensor Node thường chen vào giữa 2 block 54B của gói status từ Master
+// -> làm hỏng JSON. Bỏ qua trọn gói nhị phân này trước khi ghép JSON.
+#define WSN_SENSOR_HEADER 0xAA
+#define WSN_SENSOR_PKT_LEN 13
+#define WSN_ACK_HEADER 0x55
+#define WSN_ACK_PKT_LEN 4
+
+static void skipLoRaBytes(int n) {
+  unsigned long t0 = millis();
+  while (n > 0 && millis() - t0 < 50) {
+    if (LoRaSerial.available()) {
+      LoRaSerial.read();
+      n--;
+    }
+  }
+}
+
 void checkLoRaMessage() {
   static String rawBuf = "";
   static int braceCount = 0;
@@ -831,6 +851,16 @@ void checkLoRaMessage() {
     char c = LoRaSerial.read();
     lastPrint = millis();
     lastCharTime = millis();
+
+    // Gói SensorPacket (0xAA) có thể chen giữa JSON; gói ACK (0x55) chỉ nằm ngoài JSON
+    if ((uint8_t)c == WSN_SENSOR_HEADER) {
+      skipLoRaBytes(WSN_SENSOR_PKT_LEN - 1);
+      continue;
+    }
+    if (!inJson && (uint8_t)c == WSN_ACK_HEADER) {
+      skipLoRaBytes(WSN_ACK_PKT_LEN - 1);
+      continue;
+    }
 
     // Bắt đầu JSON khi gặp '{' (bỏ qua mọi byte rác / nhiễu vô tuyến phía trước)
     if (c == '{') {

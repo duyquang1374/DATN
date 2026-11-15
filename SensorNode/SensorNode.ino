@@ -13,11 +13,12 @@
 
 #include <Wire.h>
 #include <Adafruit_SHT31.h>
+#include "driver/gpio.h" // Bật/tắt điện trở kéo nội để phát hiện cảm biến đất chưa cắm
 
 // ─── CẤU HÌNH ĐỊNH DANH NODE (ĐỔI ID CHO TỪNG NODE) ──────────
 // Đặt = 1 cho Node 1 (Luống 1)
 // Đặt = 2 cho Node 2 (Luống 2)
-#define NODE_ID 1
+#define NODE_ID 2
 
 // ─── CHÂN KẾT NỐI TRÊN BO ESP32-C3 SUPERMINI ──────────────────
 // I2C Cảm biến SHT30
@@ -105,8 +106,49 @@ uint16_t calcCRC16(const uint8_t *data, size_t len) {
   return crc;
 }
 
+// ─── PHÁT HIỆN CẢM BIẾN ĐẤT CHƯA CẮM (CHÂN ADC THẢ NỔI) ───────
+// Bật lần lượt điện trở kéo lên / kéo xuống nội (~45k) rồi đọc ADC:
+//  - Chân thả nổi: điện áp chạy theo điện trở kéo -> 2 lần đọc lệch ~3000-4000
+//  - Có cảm biến: ngõ ra có tụ lọc giữ áp -> 2 lần đọc gần như không đổi
+#define SOIL_FLOAT_DIFF_THRESH 2000 // Lệch > 2000 đơn vị ADC -> coi như chưa cắm cảm biến
+
+static int readSoilAvg(int samples) {
+  long s = 0;
+  for (int i = 0; i < samples; i++) s += analogRead(SOIL_ADC_PIN);
+  return (int)(s / samples);
+}
+
+bool isSoilSensorDisconnected(int &upOut, int &downOut) {
+  gpio_num_t pin = (gpio_num_t)SOIL_ADC_PIN;
+
+  gpio_pulldown_dis(pin);
+  gpio_pullup_en(pin);
+  delay(2);
+  upOut = readSoilAvg(4);
+
+  gpio_pullup_dis(pin);
+  gpio_pulldown_en(pin);
+  delay(2);
+  downOut = readSoilAvg(4);
+
+  // Trả chân về trạng thái không kéo để phép đo thật không bị sai lệch
+  gpio_pulldown_dis(pin);
+  delay(2);
+
+  return (upOut - downOut) > SOIL_FLOAT_DIFF_THRESH;
+}
+
 // ─── ĐỌC ĐỘ ẨM ĐẤT LỌC TRUNG BÌNH ────────────────────────────
 float readSoilMoisture(uint16_t &rawOut, bool &errOut) {
+  int upRaw = 0, downRaw = 0;
+  if (isSoilSensorDisconnected(upRaw, downRaw)) {
+    Serial.printf("[SOIL] Khong phat hien cam bien dat (chan tha noi: PU=%d PD=%d) -> Bao loi\n",
+                  upRaw, downRaw);
+    rawOut = 0;
+    errOut = true;
+    return 0.0f;
+  }
+
   long sum = 0;
   const int SAMPLES = 10;
   for (int i = 0; i < SAMPLES; i++) {
@@ -194,6 +236,7 @@ void setup() {
   // Khởi tạo ADC đất (12-bit: 0 - 4095, 11dB: 0 - 3.3V)
   analogReadResolution(12);
   analogSetAttenuation(ADC_11db);
+  analogRead(SOIL_ADC_PIN); // Đọc mồi để gắn kênh ADC trước, tránh cấu hình ADC xóa trạng thái pull ở lần đo đầu
   Serial.printf("[SOIL] ADC khoi tao tai GPIO %d (Dry=%d, Wet=%d)\n",
                 SOIL_ADC_PIN, SOIL_DRY_RAW, SOIL_WET_RAW);
 #if CALIBRATION_MODE

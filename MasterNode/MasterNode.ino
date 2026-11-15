@@ -29,6 +29,7 @@ Adafruit_SHT31 sht30;
 Adafruit_SHT31 sht30_ext(&I2C_Ext);
 BH1750 lightMeter;
 Servo roofServo;
+Servo roofServo2; // Servo 2 đặt ngược chiều (GPIO 12)
 
 // ─── UART ──────────────────────────────────────────
 HardwareSerial LoRaSerial(2);
@@ -257,7 +258,7 @@ void sendHMIData() {
   st.add((g_roofAngle > 0)
              ? 1
              : 0);           // 5: Rèm cửa (1: Mở / >0 độ, 0: Đóng hoàn toàn)
-  doc["roof"] = g_roofAngle; // Góc rèm thực tế gửi sang HMI hiển thị LCD
+  doc["roof"] = g_roofAngle; // Góc rèm thực tế (0 - 75 độ), HMI tự quy đổi ra % để hiển thị
 
   doc["s_ok"] = g_sht30OK ? 1 : 0;
   doc["se_ok"] = g_sht30ExtOK ? 1 : 0;
@@ -321,16 +322,17 @@ void checkHMICommand() {
           handled = true;
         } else if (cmd.indexOf("CMD:TOGGLE_ROOF") != -1) {
           Serial.println("[HMI RX] Nhan lenh: " + cmd);
-          if (g_roofAngle >= 90)
+          if (g_roofAngle >= (ROOF_MAX_ANGLE / 2))
             setRoofManual(0);
           else
-            setRoofManual(180);
-          Serial.printf("[HMI RX] Rem cua -> %s\n",
-                        (g_roofAngle >= 90) ? "MO (Xanh)" : "DONG (Do)");
+            setRoofManual(ROOF_MAX_ANGLE);
+          Serial.printf("[HMI RX] Rem cua -> %s (%d%%)\n",
+                        (g_roofAngle >= (ROOF_MAX_ANGLE / 2)) ? "MO (Xanh)" : "DONG (Do)",
+                        ROOF_ANGLE_TO_PCT(g_roofAngle));
           handled = true;
         } else if (cmd.startsWith("CMD:SET_ROOF:")) {
           int angle = cmd.substring(13).toInt();
-          angle = constrain(angle, 0, 180);
+          angle = constrain(angle, 0, ROOF_MAX_ANGLE);
 
           static int s_lastAppliedAngle = -1;
           if (angle != s_lastAppliedAngle) {

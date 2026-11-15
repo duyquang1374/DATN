@@ -238,6 +238,26 @@ void processLoRaPacket(String rawJson) {
   }
 }
 
+// ─── LỌC GÓI NHỊ PHÂN CỦA MẠNG CẢM BIẾN (WSN) LẪN VÀO LUỒNG JSON ───
+// Gateway cùng kênh LoRa nên cũng nghe được gói SensorPacket (13B, header 0xAA)
+// của Sensor Node và gói ACK (4B, header 0x55) mà Master Node trả lời Node.
+// Gói Sensor Node thường chen vào giữa 2 block 54B của gói status từ Master
+// -> làm hỏng JSON. Bỏ qua trọn gói nhị phân này trước khi ghép JSON.
+#define WSN_SENSOR_HEADER 0xAA
+#define WSN_SENSOR_PKT_LEN 13
+#define WSN_ACK_HEADER 0x55
+#define WSN_ACK_PKT_LEN 4
+
+static void skipLoRaBytes(int n) {
+  unsigned long t0 = millis();
+  while (n > 0 && millis() - t0 < 50) {
+    if (LoRaSerial.available()) {
+      LoRaSerial.read();
+      n--;
+    }
+  }
+}
+
 void checkLoRaMessage() {
   static String rawBuf = "";
   static int braceCount = 0;
@@ -259,6 +279,16 @@ void checkLoRaMessage() {
     lastPrint = millis();
     lastCharTime = millis();
 
+    // Gói SensorPacket (0xAA) có thể chen giữa JSON; gói ACK (0x55) chỉ nằm ngoài JSON
+    if ((uint8_t)c == WSN_SENSOR_HEADER) {
+      skipLoRaBytes(WSN_SENSOR_PKT_LEN - 1);
+      continue;
+    }
+    if (!inJson && (uint8_t)c == WSN_ACK_HEADER) {
+      skipLoRaBytes(WSN_ACK_PKT_LEN - 1);
+      continue;
+    }
+
     // Bắt đầu JSON khi gặp '{' (bỏ qua mọi byte rác / nhiễu vô tuyến phía trước)
     if (c == '{') {
       if (!inJson) {
@@ -267,6 +297,21 @@ void checkLoRaMessage() {
         inJson = true;
       }
       braceCount++;
+    }
+
+    // Lọc nhiễu từ thiết bị LoRa lạ cùng kênh: dạng "N1,T=0,R=0,...\n" chen giữa JSON.
+    // JSON của Master không bao giờ chứa '\n' bên trong -> gặp '\n' khi đang ghép JSON
+    // nghĩa là có đoạn lạ: cắt từ vị trí "N<so>," gần nhất tới hết.
+    if (inJson && (c == '\n' || c == '\r')) {
+      int cut = -1;
+      for (int i = rawBuf.length() - 2; i >= 0; i--) {
+        if (rawBuf[i] == 'N' && isDigit(rawBuf[i + 1])) { cut = i; break; }
+      }
+      if (cut >= 0) {
+        Serial.println("[LoRa] Loai bo nhieu la: " + rawBuf.substring(cut));
+        rawBuf.remove(cut);
+      }
+      continue;
     }
 
     if (inJson) {

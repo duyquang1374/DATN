@@ -527,8 +527,8 @@ void checkLoRaCommand() {
 
             // ─── Mái che ───
             else if (cmd == "roof_open") {
-              setRoofManual(180);
-              Serial.println(F("[LoRa RX] Rem cua -> MO (180 deg)"));
+              setRoofManual(ROOF_MAX_ANGLE);
+              Serial.printf("[LoRa RX] Rem cua -> MO (%d deg)\n", ROOF_MAX_ANGLE);
             } else if (cmd == "roof_close") {
               setRoofManual(0);
               Serial.println(F("[LoRa RX] Rem cua -> DONG (0 deg)"));
