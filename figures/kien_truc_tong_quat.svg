@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#37474F"/>
+    </marker>
+    <style>
+      .bt { font-size: 20px; font-weight: 700; fill: #1F2D3A; }
+      .tx { font-size: 15px; fill: #3C4A55; }
+      .lb { font-size: 14px; fill: #37474F; font-style: italic; }
+      .ar { stroke: #37474F; stroke-width: 2.2; fill: none; }
+      .box { fill: #FFFFFF; stroke-width: 2; }
+    </style>
+  </defs>
+  <rect width="1200" height="600" fill="#FFFFFF"/>
+
+  <!-- Người dùng & Web -->
+  <rect x="80" y="70" width="240" height="86" rx="12" class="box" stroke="#5B9BD5"/>
+  <text x="200" y="106" class="bt" text-anchor="middle">Người dùng</text>
+  <text x="200" y="132" class="tx" text-anchor="middle">Điện thoại / Laptop</text>
+
+  <rect x="480" y="70" width="280" height="86" rx="12" class="box" stroke="#5B9BD5"/>
+  <text x="620" y="106" class="bt" text-anchor="middle">Web Dashboard</text>
+  <text x="620" y="132" class="tx" text-anchor="middle">Giám sát &amp; điều khiển</text>
+
+  <path d="M320,113 L478,113" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+
+  <!-- Gateway -->
+  <path d="M620,156 L620,258" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <text x="634" y="212" class="lb">HTTP / REST API</text>
+
+  <rect x="470" y="260" width="300" height="100" rx="12" class="box" stroke="#E07B53"/>
+  <text x="620" y="298" class="bt" text-anchor="middle">Gateway ESP32-S3</text>
+  <text x="620" y="326" class="tx" text-anchor="middle">Web server · LoRa · Nhật ký Flash</text>
+
+  <!-- Master -->
+  <path d="M620,360 L620,438" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <text x="634" y="404" class="lb">LoRa 433 MHz</text>
+
+  <rect x="470" y="440" width="300" height="100" rx="12" class="box" stroke="#3A9E96"/>
+  <text x="620" y="478" class="bt" text-anchor="middle">Master Node</text>
+  <text x="620" y="506" class="tx" text-anchor="middle">Điều khiển · TinyML · Data Fusion</text>
+
+  <!-- Sensor Node -->
+  <path d="M320,490 L468,490" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <text x="394" y="478" class="lb" text-anchor="middle">LoRa</text>
+
+  <rect x="80" y="440" width="240" height="100" rx="12" class="box" stroke="#3A9E96"/>
+  <text x="200" y="478" class="bt" text-anchor="middle">Sensor Node</text>
+  <text x="200" y="506" class="tx" text-anchor="middle">Cảm biến nhiệt ẩm, đất</text>
+
+  <!-- HMI -->
+  <path d="M770,490 L878,490" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <text x="824" y="478" class="lb" text-anchor="middle">UART</text>
+
+  <rect x="880" y="440" width="240" height="100" rx="12" class="box" stroke="#3A9E96"/>
+  <text x="1000" y="478" class="bt" text-anchor="middle">HMI Node</text>
+  <text x="1000" y="506" class="tx" text-anchor="middle">LCD · nút nhấn tại chỗ</text>
+</svg>

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#37474F"/>
+    </marker>
+    <style>
+      .bt { font-size: 19px; font-weight: 700; fill: #1F2D3A; }
+      .tx { font-size: 14px; fill: #3C4A55; }
+      .lb { font-size: 13px; fill: #37474F; font-style: italic; }
+      .title { font-size: 20px; font-weight: 700; fill: #1F2D3A; }
+      .ar { stroke: #37474F; stroke-width: 2.2; fill: none; }
+      .box { fill: #FFFFFF; stroke-width: 2; }
+    </style>
+  </defs>
+  <rect width="1200" height="420" fill="#FFFFFF"/>
+
+  <text x="600" y="50" class="title" text-anchor="middle">Khối điều khiển và giám sát từ xa</text>
+
+  <!-- Người dùng -->
+  <rect x="30" y="150" width="200" height="120" rx="12" class="box" stroke="#5B9BD5"/>
+  <text x="130" y="200" class="bt" text-anchor="middle">Người dùng</text>
+  <text x="130" y="228" class="tx" text-anchor="middle">Điện thoại, laptop</text>
+
+  <!-- Web Dashboard -->
+  <rect x="340" y="150" width="200" height="120" rx="12" class="box" stroke="#5B9BD5"/>
+  <text x="440" y="200" class="bt" text-anchor="middle">Web Dashboard</text>
+  <text x="440" y="228" class="tx" text-anchor="middle">Giao diện giám sát</text>
+
+  <!-- Gateway -->
+  <rect x="650" y="150" width="200" height="120" rx="12" class="box" stroke="#E07B53"/>
+  <text x="750" y="200" class="bt" text-anchor="middle">Gateway</text>
+  <text x="750" y="228" class="tx" text-anchor="middle">REST API · Nhật ký Flash</text>
+
+  <!-- Nhà màng (ngoài phạm vi) -->
+  <rect x="960" y="150" width="200" height="120" rx="12" class="box" stroke="#9E9E9E" stroke-dasharray="6 5"/>
+  <text x="1060" y="200" class="bt" text-anchor="middle" fill="#6B6B6B">Nhà màng</text>
+  <text x="1060" y="228" class="tx" text-anchor="middle">Master Node (ngoài khối)</text>
+
+  <!-- Liên kết 1: Người dùng <-> Web -->
+  <path d="M232,210 L338,210" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <text x="285" y="195" class="lb" text-anchor="middle">HTTPS</text>
+
+  <!-- Liên kết 2: Web <-> Gateway -->
+  <path d="M542,210 L648,210" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <text x="595" y="184" class="lb" text-anchor="middle">Internet /</text>
+  <text x="595" y="200" class="lb" text-anchor="middle">Cloudflare</text>
+
+  <!-- Liên kết 3: Gateway <-> Nhà màng -->
+  <path d="M852,210 L958,210" class="ar" stroke-dasharray="7 5" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <text x="905" y="195" class="lb" text-anchor="middle">LoRa</text>
+
+  <text x="600" y="330" class="tx" text-anchor="middle">Web Dashboard hỏi dữ liệu định kỳ; Gateway trả JSON và nhận lệnh điều khiển, chuyển xuống nhà màng qua LoRa.</text>
+</svg>

@@ -5,7 +5,7 @@ import os
 
 TARGETS    = ["temperature", "humidity", "log_light"]
 SKETCH_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "..", "SmartGreenhouse")
+                          "..", "MasterNode")
 
 for t in TARGETS:
     model = joblib.load(f"model_{t}.joblib")

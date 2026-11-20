@@ -38,3 +38,9 @@ build_docx_v2.py
 create_docx.py
 generate_report_docx.py
 
+# Archives and temporary files
+*.zip
+extracted_media/
+Dự báo nhiệt độ/Data/Data_upload/
+
+

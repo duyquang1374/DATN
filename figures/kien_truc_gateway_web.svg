@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#37474F"/>
+    </marker>
+    <style>
+      .lt { font-size: 20px; font-weight: 700; fill: #1F2D3A; }
+      .bt { font-size: 19px; font-weight: 700; fill: #1F2D3A; }
+      .tx { font-size: 15.5px; fill: #3C4A55; }
+      .lb { font-size: 15px; fill: #37474F; font-style: italic; }
+      .ar { stroke: #37474F; stroke-width: 2.2; fill: none; }
+      .box { fill: #FFFFFF; stroke-width: 1.8; }
+    </style>
+  </defs>
+  <rect width="1400" height="900" fill="#FFFFFF"/>
+
+  <!-- TẦNG 1 -->
+  <rect x="20" y="20" width="1360" height="150" rx="16" fill="#EAF3FC" stroke="#5B9BD5" stroke-width="2"/>
+  <text x="44" y="52" class="lt">TẦNG ỨNG DỤNG</text>
+  <rect x="140" y="70" width="380" height="84" rx="10" class="box" stroke="#5B9BD5"/>
+  <text x="330" y="106" class="bt" text-anchor="middle">Người dùng</text>
+  <text x="330" y="132" class="tx" text-anchor="middle">Điện thoại / Laptop</text>
+  <path d="M520,112 L738,112" class="ar" marker-end="url(#ah)"/>
+  <text x="629" y="102" class="lb" text-anchor="middle">giám sát &amp; điều khiển</text>
+  <rect x="740" y="70" width="520" height="84" rx="10" class="box" stroke="#5B9BD5"/>
+  <text x="1000" y="106" class="bt" text-anchor="middle">Web Dashboard</text>
+  <text x="1000" y="132" class="tx" text-anchor="middle">Giao diện web (lưu trữ trên Cloudflare)</text>
+
+  <path d="M700,172 L700,228" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <text x="714" y="205" class="lb">HTTP Fetch (JSON)</text>
+
+  <!-- TẦNG 2 -->
+  <rect x="20" y="230" width="1360" height="140" rx="16" fill="#EAF7EE" stroke="#5DAE72" stroke-width="2"/>
+  <text x="44" y="262" class="lt">TẦNG MẠNG</text>
+  <rect x="140" y="276" width="480" height="78" rx="10" class="box" stroke="#5DAE72"/>
+  <text x="380" y="321" class="bt" text-anchor="middle">Internet / Cloudflare Tunnel</text>
+  <path d="M620,315 L778,315" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <rect x="780" y="276" width="480" height="78" rx="10" class="box" stroke="#5DAE72"/>
+  <text x="1020" y="321" class="bt" text-anchor="middle">Router WiFi (mạng LAN)</text>
+
+  <path d="M700,372 L700,428" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <text x="714" y="405" class="lb">REST API (HTTP)</text>
+
+  <!-- TẦNG 3 -->
+  <rect x="20" y="430" width="1360" height="290" rx="16" fill="#FDF0EA" stroke="#E07B53" stroke-width="2"/>
+  <text x="44" y="462" class="lt">TẦNG GATEWAY – ESP32-S3</text>
+
+  <rect x="50" y="482" width="380" height="96" rx="10" class="box" stroke="#E07B53"/>
+  <text x="240" y="518" class="bt" text-anchor="middle">Máy chủ Web nhúng</text>
+  <text x="240" y="546" class="tx" text-anchor="middle">/api/status · /api/control · /api/forecast</text>
+
+  <path d="M430,530 L508,530" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+
+  <rect x="510" y="482" width="380" height="96" rx="10" class="box" stroke="#E07B53"/>
+  <text x="700" y="518" class="bt" text-anchor="middle">Bộ xử lý dữ liệu</text>
+  <text x="700" y="546" class="tx" text-anchor="middle">Giải mã gói tin · Đóng gói lệnh · Smart Retry</text>
+
+  <path d="M890,530 L968,530" class="ar" marker-start="url(#ah)" marker-end="url(#ah)"/>
+
+  <rect x="970" y="482" width="380" height="96" rx="10" class="box" stroke="#E07B53"/>
+  <text x="1160" y="518" class="bt" text-anchor="middle">Module LoRa E32</text>
+  <text x="1160" y="546" class="tx" text-anchor="middle">Thu phát vô tuyến 433 MHz</text>
+
+  <path d="M700,578 L700,618" class="ar" marker-end="url(#ah)"/>
+  <text x="712" y="603" class="lb">ghi nhật ký</text>
+
+  <rect x="510" y="620" width="380" height="84" rx="10" class="box" stroke="#E07B53"/>
+  <text x="700" y="655" class="bt" text-anchor="middle">Bộ nhớ Flash LittleFS</text>
+  <text x="700" y="682" class="tx" text-anchor="middle">Nhật ký /data.csv</text>
+
+  <path d="M510,662 L240,662 L240,580" class="ar" marker-end="url(#ah)"/>
+  <text x="375" y="652" class="lb" text-anchor="middle">tải file CSV</text>
+
+  <!-- LoRa -->
+  <path d="M1160,580 L1160,778" class="ar" stroke-dasharray="7 5" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <text x="1174" y="755" class="lb">LoRa 433 MHz</text>
+
+  <!-- TẦNG 4 -->
+  <rect x="20" y="780" width="1360" height="100" rx="16" fill="#E8F6F5" stroke="#3A9E96" stroke-width="2"/>
+  <text x="44" y="812" class="lt">TẦNG THIẾT BỊ</text>
+  <rect x="330" y="796" width="410" height="70" rx="10" class="box" stroke="#3A9E96"/>
+  <text x="535" y="824" class="bt" text-anchor="middle">Sensor Node 1, 2</text>
+  <text x="535" y="850" class="tx" text-anchor="middle">SHT30 · Độ ẩm đất (mỗi luống 1 nút)</text>
+  <path d="M742,831 L858,831" class="ar" stroke-dasharray="7 5" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  <text x="800" y="822" class="lb" text-anchor="middle">LoRa</text>
+  <text x="800" y="853" class="lb" text-anchor="middle">CRC + ACK</text>
+  <rect x="860" y="796" width="500" height="70" rx="10" class="box" stroke="#3A9E96"/>
+  <text x="1110" y="824" class="bt" text-anchor="middle">Master Node tại nhà màng</text>
+  <text x="1110" y="850" class="tx" text-anchor="middle">Data Fusion · Cơ cấu chấp hành · TinyML</text>
+</svg>
