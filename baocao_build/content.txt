@@ -1,0 +1,130 @@
+H1|CHƯƠNG 4. KIỂM THỬ VÀ ĐÁNH GIÁ HỆ THỐNG
+H2|4.1. Điều kiện và trạng thái ban đầu của nhà màng
+P|Trước khi tiến hành các kịch bản, hệ thống được cấp nguồn và vận hành ổn định để các cảm biến, liên kết LoRa giữa Master Node – Gateway và giao diện giám sát hoạt động bình thường. Trạng thái ban đầu ghi nhận trên dashboard được thể hiện ở Hình 4.1.
+IMG|image1.png;image2.png|7.6
+CAP|Hình 4.1. Trạng thái ban đầu của nhà màng trên giao diện giám sát
+P|Tại thời điểm bắt đầu thử nghiệm, nhiệt độ và độ ẩm không khí bên trong nhà màng lần lượt là 26,5 °C và 59,9 %; bên ngoài nhà màng là 26,2 °C và 58,2 %. Cường độ ánh sáng đo được là 88 lux, độ ẩm đất tại luống 1 và luống 2 lần lượt là 56 % và 81 %. Tất cả các thiết bị chấp hành đều ở chế độ tự động (AUTO) và đang ở trạng thái tắt, ngoại trừ đèn chiếu sáng đang bật do cường độ sáng thấp hơn ngưỡng 1000 lux. Các tham số cài đặt và tham số thuật toán chính được tổng hợp trong Bảng 4.1.
+TCAP|Bảng 4.1. Các tham số cài đặt của hệ thống khi thử nghiệm
+T|Tham số|Giá trị|Ý nghĩa
+T|Ngưỡng bật quạt (T_sp,quạt)|28,0 °C|Quạt bật khi T_trong ≥ 28,0 °C
+T|Vùng trễ tắt quạt (deadband)|1,0 °C|Quạt chỉ tắt khi T_trong ≤ T_sp,quạt − 1,0 °C
+T|Dải PWM quạt|102 – 255 (40 % – 100 %)|Mức tối thiểu để quạt DC quay ổn định đến công suất tối đa
+T|Hệ số PID (Kp; Ki; Kd)|75; 0,05; 0|Mỗi 1 °C quá nhiệt tăng khoảng 75 đơn vị PWM
+T|Ngưỡng đóng rèm che|T_trong > T_sp,quạt + 2,0 °C|Rèm chớp xoay 75° che kín mái để giảm bức xạ
+T|Ngưỡng bật đèn sưởi (T_sp,sưởi)|18,0 °C|Đèn sưởi bật khi T_trong < 18,0 °C
+T|Vùng trễ tắt sưởi|1,0 °C|Đèn sưởi tắt khi T_trong ≥ T_sp,sưởi + 1,0 °C
+T|Ngưỡng cấp ẩm phun sương|45 %|Phun sương bật khi RH < 45 % hoặc khi làm mát cùng quạt
+T|Thời gian chạy tối thiểu phun sương|60 s|Chống đóng/ngắt liên tục bơm phun sương
+T|Chu kỳ lấy mẫu / gửi LoRa|10 s / 10 s|Chu kỳ đọc cảm biến và cập nhật dữ liệu lên Gateway
+P|Từ trạng thái ban đầu này, ba kịch bản thử nghiệm được triển khai lần lượt:
+B|Kịch bản 1: Làm mát tự động vào mùa hè.
+B|Kịch bản 2: Sưởi ấm tự động vào mùa đông.
+B|Kịch bản 3: Dự báo sớm vi khí hậu bằng mô hình AI (TinyML) nhúng trên Master Node.
+H2|4.2. Kịch bản 1: Làm mát tự động vào mùa hè
+H3|4.2.1. Bối cảnh thực tế
+P|Vào buổi trưa mùa hè, bức xạ mặt trời xuyên qua lớp màng phủ kết hợp với hiệu ứng nhà kính khiến nhiệt độ bên trong nhà màng tăng nhanh và thường cao hơn ngoài trời vài độ, có thể lên tới 34 – 36 °C. Mức nhiệt này vượt xa khoảng sinh trưởng tối ưu của phần lớn cây trồng (25 – 28 °C), làm cây đóng khí khổng, giảm quang hợp, mất nước và héo lá. Do đó hệ thống phải phát hiện kịp thời khi nhiệt độ vượt ngưỡng và phối hợp các cơ cấu làm mát gồm quạt thông gió, phun sương và rèm che với mức độ tác động tương ứng với mức độ quá nhiệt.
+P|Do thời điểm thử nghiệm không phải buổi trưa hè và mô hình có quy mô nhỏ, sự gia tăng nhiệt độ được mô phỏng bằng một nguồn nhiệt cục bộ tác động trực tiếp lên cảm biến nhiệt độ – độ ẩm SHT30 đặt bên trong nhà màng. Cách làm này tạo ra một bước tăng nhiệt độ đo được tương tự một đợt nắng gắt, đủ để kiểm tra toàn bộ chuỗi phản ứng của bộ điều khiển.
+H3|4.2.2. Quy trình kích hoạt
+L|a) Dụng cụ và phương pháp
+B|Dụng cụ: bật lửa.
+B|Phương pháp: hơ ngọn lửa ở khoảng cách an toàn gần đầu đo bằng đồng của cảm biến SHT30 trong nhà màng trong 3 – 5 giây, lặp lại cho đến khi nhiệt độ đo được vượt ngưỡng từ 2 °C trở lên; sau đó ngừng cấp nhiệt để nhiệt độ hạ dần dưới tác động của quạt và phun sương.
+B|Điều kiện: quạt, phun sương và rèm che ở chế độ AUTO; ngưỡng bật quạt 28,0 °C.
+L|b) Nguyên lý điều khiển
+P|Thuật toán làm mát trên Master Node hoạt động theo ba cấp, tương ứng với mức chênh lệch ΔT = T_trong − T_sp,quạt:
+B|Cấp 1 (ΔT ≥ 0): quạt được khởi động bằng một xung đề pa 100 % trong 300 ms để thắng ma sát tĩnh, sau đó tốc độ được điều chỉnh bằng bộ PID. Bộ PID khởi tạo từ mức tối thiểu 40 % (PWM 102), do đó tại thời điểm bật, công suất quạt xấp xỉ PWM ≈ 102 + 75·ΔT và tăng dần đến bão hòa 100 % (PWM 255) khi ΔT ≈ 2 °C. Đồng thời, bơm phun sương được bật để hỗ trợ làm mát bay hơi (điều kiện: quạt đang chạy và T_trong ≥ T_sp,quạt).
+B|Cấp 2 (ΔT > 2,0 °C, tức T_trong > 30,0 °C): ngoài quạt chạy tối đa, servo xoay các lá rèm chớp tới góc 75°, rèm đóng hoàn toàn để che kín mái, giảm lượng bức xạ chiếu xuống và tạo bóng mát cho cây.
+B|Cấp 3 (hạ nhiệt): khi T_trong ≤ 28,0 °C, rèm trở về vị trí ban đầu. Quạt tiếp tục chạy với tốc độ giảm dần và chỉ tắt khi T_trong ≤ T_sp,quạt − 1,0 = 27,0 °C và nhiệt độ ngoài trời đủ mát (T_ngoài ≤ T_sp,quạt + 0,5 °C). Phun sương chỉ được ngắt sau khi đã chạy tối thiểu 60 s và T_trong ≤ T_sp,quạt − 0,5 = 27,5 °C. Vùng trễ này giúp tránh hiện tượng thiết bị bật/tắt liên tục quanh ngưỡng.
+L|c) Diễn biến thực nghiệm
+P|Khi nguồn nhiệt được đưa lại gần, nhiệt độ đo được tăng dần. Ngay khi vượt ngưỡng 28,0 °C, quạt bắt đầu quay với tốc độ phụ thuộc vào độ chênh lệch giữa nhiệt độ hiện tại và nhiệt độ ngưỡng. Hình 4.2 ghi nhận trạng thái tại T_trong = 29,1 °C (vượt ngưỡng 1,1 °C): quạt chạy ở 71 % (PWM 182/255), bơm phun sương hoạt động làm độ ẩm trong nhà tăng từ 59,9 % lên 80,3 %, trong khi đèn sưởi vẫn tắt. Nhiệt độ ngoài trời chỉ 25,9 °C cho thấy sự tăng nhiệt là cục bộ bên trong nhà màng. Do chưa vượt ngưỡng 30,0 °C nên rèm che chưa tác động, các lá rèm vẫn ở vị trí mở như trong ảnh chụp thực tế.
+IMG|image3.png;image4.jpeg|7.6
+CAP|Hình 4.2. Trạng thái khi nhiệt độ trong nhà màng lớn hơn ngưỡng đặt khoảng 1 °C: (a) giao diện giám sát; (b) mô hình thực tế
+P|Tiếp tục cấp nhiệt, nhiệt độ trong nhà tăng lên 30,3 °C (vượt ngưỡng 2,3 °C), cảm biến được đánh giá ở mức "Nóng" (Hình 4.3). Lúc này bộ điều khiển yêu cầu quạt chạy ở công suất tối đa 100 % (PWM 255/255), phun sương tiếp tục duy trì, đồng thời rèm chớp đóng hoàn toàn để giảm lượng nhiệt bức xạ chiếu xuống, tạo bóng mát cho cây và giúp quá trình hạ nhiệt diễn ra nhanh hơn.
+IMG|image5.png;image6.jpeg|7.6
+CAP|Hình 4.3. Trạng thái khi nhiệt độ trong nhà màng lớn hơn ngưỡng đặt từ 2 °C trở lên: (a) giao diện giám sát; (b) rèm che đóng hoàn toàn
+P|Sau khi ngừng cấp nhiệt, nhiệt độ giảm dần và tốc độ quạt cũng giảm theo (Hình 4.4). Tại 27,7 °C quạt chạy 66 % (PWM 168), tại 27,5 °C còn 62 % (PWM 157). Đáng chú ý, ở hai thời điểm này nhiệt độ đã thấp hơn ngưỡng 28,0 °C nhưng quạt vẫn tiếp tục chạy do khâu tích phân của bộ PID và vùng trễ 1,0 °C. Chỉ khi nhiệt độ hạ xuống 27,0 °C (bằng T_sp,quạt − 1,0 °C) và nhiệt độ ngoài trời ở mức mát (24,8 °C), quạt mới dừng hẳn (0 %).
+IMG|image7.png;image8.png;image9.png|5.2
+CAP|Hình 4.4. Tốc độ quạt giảm dần theo nhiệt độ trong quá trình hạ nhiệt: (a) 27,7 °C – 66 %; (b) 27,5 °C – 62 %; (c) 27,0 °C – quạt tắt
+H3|4.2.3. Các tiêu chí đo đạc và đánh giá
+P|Kết quả kịch bản 1 được đánh giá dựa trên việc so sánh hành vi đo được với yêu cầu thiết kế của thuật toán điều khiển, tổng hợp trong Bảng 4.2.
+TCAP|Bảng 4.2. Kết quả đo đạc và đánh giá kịch bản 1
+T|Tiêu chí|Yêu cầu thiết kế|Kết quả đo được|Đánh giá
+T|Ngưỡng kích hoạt quạt|Quạt bật khi T_trong ≥ 28,0 °C|Tại 29,1 °C quạt đã chạy 71 %|Đạt
+T|Công suất quạt theo độ lệch nhiệt|ΔT = 1,1 °C → PWM ≈ 102 + 75 × 1,1 ≈ 184 (≈ 72 %)|PWM 182 (71 %)|Đạt, sai lệch ≈ 1 %
+T|Bão hòa công suất|ΔT ≥ 2 °C → quạt 100 %|30,3 °C (ΔT = 2,3 °C) → 100 %|Đạt
+T|Phối hợp phun sương|Bật khi quạt chạy và T_trong ≥ 28,0 °C|Phun sương bật, RH tăng 59,9 % → 80,3 %|Đạt
+T|Phối hợp rèm che|Chỉ đóng khi T_trong > 30,0 °C|29,1 °C: chưa tác động; 30,3 °C: đóng hoàn toàn|Đạt
+T|Vùng trễ khi tắt quạt|Quạt tắt khi T_trong ≤ 27,0 °C|27,7 °C và 27,5 °C: vẫn chạy; 27,0 °C: tắt|Đạt
+T|Thời gian đáp ứng|≤ 1 chu kỳ lấy mẫu (10 s) tại Master Node; hiển thị trên web sau ≤ 1 chu kỳ LoRa (10 s)|[[điền thời gian đo từ lúc vượt ngưỡng đến khi quạt quay]]|[[...]]
+T|Thời gian hạ nhiệt|Từ nhiệt độ đỉnh về 27,0 °C|[[điền: từ 30,3 °C về 27,0 °C mất ... phút]]|[[...]]
+P|Nhận xét: Hệ thống phản ứng đúng theo ba cấp đã thiết kế. Công suất quạt tỷ lệ thuận với mức quá nhiệt, giá trị PWM đo được tại ΔT = 1,1 °C sai lệch khoảng 1 % so với tính toán lý thuyết. Các cơ cấu chấp hành được phối hợp theo thứ tự hợp lý: quạt và phun sương tác động trước, rèm che chỉ đóng khi nhiệt độ vượt ngưỡng từ 2 °C trở lên. Cơ chế vùng trễ 1,0 °C hoạt động đúng, quạt không bị bật/tắt liên tục khi nhiệt độ dao động quanh ngưỡng 28,0 °C. Tuy nhiên, do nguồn nhiệt chỉ tác động cục bộ vào cảm biến chứ không làm nóng toàn bộ khối không khí trong nhà màng, tốc độ hạ nhiệt đo được nhanh hơn so với điều kiện thực tế; để đánh giá chính xác hiệu quả làm mát cần thử nghiệm dài hạn dưới bức xạ mặt trời thật.
+H2|4.3. Kịch bản 2: Sưởi ấm tự động vào mùa đông
+H3|4.3.1. Bối cảnh thực tế
+P|Vào ban đêm mùa đông, đặc biệt trong các đợt gió mùa đông bắc ở miền Bắc, nhiệt độ trong nhà màng có thể giảm xuống dưới 18 °C. Nhiệt độ thấp kéo dài làm chậm quá trình trao đổi chất, gây tổn thương lạnh cho bộ rễ và làm cây ngừng sinh trưởng. Hệ thống cần tự động cấp nhiệt khi nhiệt độ giảm xuống dưới ngưỡng, đồng thời điều tiết công suất sưởi theo mức thiếu hụt nhiệt để tránh quá nhiệt cục bộ gây khô héo lá gần nguồn sưởi và tránh lãng phí điện năng.
+P|Do thời điểm thử nghiệm có nhiệt độ môi trường khoảng 26 – 27 °C, không thể hạ nhiệt độ thực xuống dưới 18 °C, kịch bản được mô phỏng bằng cách nâng ngưỡng sưởi lên gần nhiệt độ môi trường và làm lạnh cục bộ cảm biến. Ngưỡng bật quạt cũng được nâng tương ứng để giữ khoảng cách an toàn giữa hai ngưỡng, đảm bảo quạt và đèn sưởi không hoạt động đồng thời.
+H3|4.3.2. Quy trình kích hoạt
+L|a) Dụng cụ và phương pháp
+B|Thay đổi ngưỡng trên dashboard: ngưỡng bật đèn sưởi 18,0 °C → 26,0 °C; ngưỡng bật quạt 28,0 °C → 30,0 °C.
+B|Dụng cụ: [[điền dụng cụ đã dùng để làm lạnh, ví dụ túi đá/khăn lạnh]].
+B|Phương pháp: đặt dụng cụ làm lạnh gần cảm biến SHT30 trong nhà màng để nhiệt độ đo được giảm xuống dưới ngưỡng 26,0 °C; sau đó bỏ dụng cụ làm lạnh ra để nhiệt độ tăng trở lại dưới tác động của đèn sưởi.
+L|b) Nguyên lý điều khiển
+B|Khi T_trong < T_sp,sưởi (26,0 °C): đèn sưởi được bật và điều khiển bằng bộ PID tác động thuận. Bộ PID khởi tạo từ mức tối thiểu PWM 50, công suất tại thời điểm bật xấp xỉ PWM ≈ 50 + 75·(T_sp,sưởi − T_trong) và bão hòa ở 100 % (PWM 255).
+B|Khi nhiệt độ tăng dần về phía ngưỡng: độ thiếu hụt nhiệt giảm nên công suất sưởi giảm theo, hạn chế hiện tượng vọt lố nhiệt độ.
+B|Khi T_trong ≥ T_sp,sưởi + ΔT_trễ = 26,0 + 1,0 = 27,0 °C: đèn sưởi ngừng hoạt động. Vùng trễ 1,0 °C giúp tránh đèn sưởi bật/tắt liên tục quanh ngưỡng.
+L|c) Diễn biến thực nghiệm
+P|Trạng thái ban đầu của kịch bản 2 được thể hiện ở Hình 4.5. Nhiệt độ trong nhà là 26,9 °C, cao hơn ngưỡng sưởi 26,0 °C nên đèn sưởi vẫn tắt; quạt cũng tắt do nhiệt độ thấp hơn ngưỡng 30,0 °C.
+IMG|image10.png|14
+CAP|Hình 4.5. Trạng thái ban đầu của kịch bản 2 sau khi thay đổi ngưỡng (quạt 30,0 °C, đèn sưởi 26,0 °C)
+P|Khi cảm biến được làm lạnh, nhiệt độ trong nhà giảm xuống 23,0 °C, thấp hơn ngưỡng 3,0 °C. Đèn sưởi lập tức chuyển sang trạng thái BẬT với công suất 100 % (PWM 255/255), phù hợp với tính toán lý thuyết 50 + 75 × 3,0 = 275, vượt giới hạn trên nên bị bão hòa ở 255. Quạt vẫn tắt (Hình 4.6).
+IMG|image11.png|14
+CAP|Hình 4.6. Đèn sưởi bật 100 % công suất khi nhiệt độ thấp hơn ngưỡng đặt
+P|Sau khi bỏ dụng cụ làm lạnh, nhiệt độ tăng dần và công suất đèn sưởi giảm tương ứng (Hình 4.7): tại 24,2 °C đèn sưởi chạy 97 % (PWM 248), tại 25,2 °C giảm còn 71 % (PWM 181). Khi nhiệt độ tăng thêm 1,0 °C, thành phần tỷ lệ của PID giảm 75 đơn vị PWM, trong khi PWM thực tế giảm 67 đơn vị do khâu tích phân bù lại một phần.
+IMG|image13.png;image12.png|7.6
+CAP|Hình 4.7. Đèn sưởi giảm dần công suất khi nhiệt độ tăng: (a) 24,2 °C – 97 %; (b) 25,2 °C – 71 %
+P|Khi nhiệt độ trong nhà đạt 27,4 °C, vượt mức T_sp,sưởi + 1,0 °C = 27,0 °C, đèn sưởi ngừng hoạt động hoàn toàn (0 %, trạng thái TẮT) như trong Hình 4.8. Độ ẩm đo được tăng lên 95,0 % nhiều khả năng do hơi nước ngưng tụ trên đầu cảm biến trong quá trình làm lạnh cục bộ, không phản ánh độ ẩm thực của toàn bộ nhà màng.
+IMG|image14.png|14
+CAP|Hình 4.8. Đèn sưởi ngừng hoạt động khi nhiệt độ vượt ngưỡng sưởi cộng vùng trễ ΔT = 1,0 °C
+H3|4.3.3. Các tiêu chí đo đạc và đánh giá
+TCAP|Bảng 4.3. Kết quả đo đạc và đánh giá kịch bản 2
+T|Tiêu chí|Yêu cầu thiết kế|Kết quả đo được|Đánh giá
+T|Ngưỡng kích hoạt sưởi|Bật khi T_trong < 26,0 °C|26,9 °C: tắt; 23,0 °C: bật|Đạt
+T|Công suất sưởi theo độ lệch nhiệt|ΔT = 3,0 °C → bão hòa 100 %|100 % (PWM 255)|Đạt
+T|Điều tiết công suất khi nhiệt độ tăng|Công suất giảm đơn điệu khi T_trong tiến về ngưỡng|24,2 °C: 97 %; 25,2 °C: 71 %|Đạt
+T|Ngưỡng ngắt sưởi (vùng trễ)|Tắt khi T_trong ≥ 27,0 °C|27,4 °C: tắt|Đạt
+T|Không xung đột quạt – sưởi|Quạt không chạy khi đèn sưởi đang bật|Quạt 0 % trong suốt kịch bản|Đạt
+T|Tốc độ nâng nhiệt|Thời gian nâng từ 23,0 °C lên 27,0 °C|[[điền: mất ... phút]]|[[...]]
+T|Chống quá nhiệt cục bộ|Nhiệt độ không tăng vọt sau khi tắt sưởi|[[điền nhiệt độ cao nhất ghi nhận sau khi đèn sưởi tắt]]|[[...]]
+P|Nhận xét: Bộ điều khiển sưởi phản ứng đúng với ngưỡng cài đặt, công suất sưởi được điều tiết theo mức thiếu hụt nhiệt thay vì chỉ đóng/ngắt hai trạng thái: công suất tối đa khi lạnh sâu và giảm dần khi nhiệt độ tiến về ngưỡng. Nhờ đó năng lượng tiêu thụ giảm và nguy cơ quá nhiệt cục bộ gần đèn sưởi được hạn chế. Vùng trễ 1,0 °C đảm bảo đèn sưởi không đóng/ngắt liên tục. Việc nâng ngưỡng quạt lên 30,0 °C đảm bảo hai cơ cấu có tác dụng ngược nhau không hoạt động cùng lúc. Hạn chế của kịch bản là nhiệt độ thấp được tạo bằng cách làm lạnh cục bộ cảm biến, nên tốc độ nâng nhiệt đo được chưa phản ánh đầy đủ khả năng sưởi ấm cho toàn bộ thể tích nhà màng trong đêm đông thực tế.
+H2|4.4. Kịch bản 3: Dự báo sớm vi khí hậu bằng mô hình AI
+H3|4.4.1. Bối cảnh thực tế
+P|Hai kịch bản trên cho thấy bộ điều khiển theo ngưỡng chỉ tác động sau khi nhiệt độ đã vượt ngưỡng, tức mang tính phản ứng thụ động. Trong khi đó nhà màng có quán tính nhiệt lớn: nếu biết trước nhiệt độ, độ ẩm và ánh sáng trong 30 – 90 phút tới, người vận hành có thể chủ động chuẩn bị, ví dụ bật sưởi sớm trước một đêm lạnh, đóng rèm trước khi nắng gắt hoặc lên kế hoạch tưới phù hợp. Đối với các vùng nông thôn có kết nối Internet không ổn định, việc dự báo cần được thực hiện ngay tại thiết bị biên thay vì phụ thuộc vào máy chủ đám mây.
+P|Vì vậy, mô hình học máy ExtraTrees (Extremely Randomized Trees) đã trình bày ở phần thiết kế được chuyển đổi bằng thư viện emlearn và nhúng trực tiếp vào vi điều khiển ESP32 của Master Node. Kịch bản này kiểm tra khả năng vận hành của mô hình trên phần cứng thực và độ chính xác dự báo so với giá trị đo thực tế.
+H3|4.4.2. Quy trình kích hoạt
+B|Thu thập dữ liệu: cứ mỗi 5 phút, Master Node lấy mẫu nhiệt độ, độ ẩm và cường độ ánh sáng (được chuyển sang thang log10(lux + 1)) rồi đưa vào bộ đệm vòng 12 mẫu, tương ứng 60 phút lịch sử. Mô hình chỉ bắt đầu dự báo khi bộ đệm đã đầy.
+B|Trích xuất đặc trưng: từ bộ đệm, Master Node xây dựng vector 27 đặc trưng gồm giá trị hiện tại, các sai phân so với 5, 10, 15, 30 và 55 phút trước, trung bình và độ lệch chuẩn trong 30 phút gần nhất của từng đại lượng, tỷ lệ mẫu có ánh sáng và mã hóa giờ trong ngày dạng sin/cos.
+B|Suy luận tại biên: mô hình dự báo độ biến thiên của từng đại lượng sau 5 phút. Kết quả được đưa ngược lại làm đầu vào cho bước tiếp theo (dự báo cuốn chiếu), lặp 6, 12 và 18 bước để thu được giá trị dự báo tại các mốc +30 phút, +1 giờ và +1 giờ 30 phút.
+B|Truyền và hiển thị: kết quả dự báo được gửi qua LoRa về Gateway và hiển thị trên thẻ "Dự báo thời tiết" của dashboard.
+B|Phương pháp đánh giá: ghi lại giá trị dự báo cho mốc +30 phút tại thời điểm t₀ = 21 giờ 40 phút, sau đó 30 phút đọc giá trị cảm biến thực tế trong nhà màng và so sánh với giá trị đã dự báo.
+P|Kết quả dự báo tại thời điểm t₀ được thể hiện ở Hình 4.9. Mô hình dự báo nhiệt độ giảm dần theo thời gian (23,0 °C sau 30 phút; 21,8 °C sau 1 giờ; 21,4 °C sau 1 giờ 30 phút), độ ẩm duy trì ở mức cao khoảng 93 % và cường độ ánh sáng bằng 0 lux. Xu hướng này phù hợp với đặc điểm vi khí hậu về đêm: không có bức xạ mặt trời, nhiệt độ giảm dần và độ ẩm tương đối tăng cao.
+IMG|image15.png|15
+CAP|Hình 4.9. Kết quả dự báo của mô hình cho các mốc +30 phút, +1 giờ và +1 giờ 30 phút
+P|Sau 30 phút, giá trị cảm biến thực tế trong nhà màng là 24,6 °C và 88,9 % (Hình 4.10).
+IMG|image16.png|9
+CAP|Hình 4.10. Giá trị nhiệt độ, độ ẩm thực tế đo được sau 30 phút kể từ thời điểm dự báo
+H3|4.4.3. Các tiêu chí đo đạc và đánh giá
+P|Sai số dự báo được đánh giá bằng sai số tuyệt đối trung bình (MAE) và căn bậc hai sai số bình phương trung bình (RMSE):
+EQ|MAE = (1/n)·Σ|ŷᵢ − yᵢ|          RMSE = √[(1/n)·Σ(ŷᵢ − yᵢ)²]
+P|trong đó ŷᵢ là giá trị dự báo, yᵢ là giá trị đo thực tế và n là số lần so sánh. Với một lần so sánh (n = 1), MAE và RMSE bằng chính sai số tuyệt đối của lần đo đó.
+TCAP|Bảng 4.4. Kết quả đo đạc và đánh giá kịch bản 3 (mốc dự báo +30 phút)
+T|Tiêu chí|Mục tiêu|Kết quả|Đánh giá
+T|Khả năng suy luận tại biên|Mô hình chạy trực tiếp trên ESP32, không cần Internet|Dự báo được tính trên Master Node, truyền về Gateway qua LoRa|Đạt
+T|Chu kỳ cập nhật|Cập nhật dự báo mỗi 5 phút|Dashboard báo "Đã cập nhật"|Đạt
+T|Sai số nhiệt độ|MAE ≤ 1,45 °C|Dự báo 23,0 °C – thực tế 24,6 °C → sai số 1,6 °C|Gần đạt (vượt 0,15 °C)
+T|Sai số độ ẩm|MAE ≤ 3,8 %|Dự báo 93 % – thực tế 88,9 % → sai số 4,1 %|Gần đạt (vượt 0,3 %)
+T|Xu hướng biến thiên|Dự báo đúng xu hướng ban đêm|Nhiệt độ giảm, độ ẩm cao, ánh sáng ≈ 0 lux|Đạt
+T|Thời gian suy luận|Đo bằng hàm micros() trên ESP32|[[điền thời gian suy luận, ví dụ ... ms cho 3 mốc dự báo]]|[[...]]
+P|Nhận xét: Mô hình TinyML vận hành ổn định trên vi điều khiển ESP32, tự động cập nhật dự báo theo chu kỳ và nắm bắt đúng xu hướng vi khí hậu ban đêm. Sai số tại mốc +30 phút là 1,6 °C đối với nhiệt độ và 4,1 % đối với độ ẩm, chỉ vượt nhẹ so với mức sai số mục tiêu. Sai số còn tồn tại có thể được giải thích bởi các nguyên nhân sau:
+B|Dữ liệu 60 phút lịch sử dùng làm đầu vào chứa các biến động nhân tạo của kịch bản 1 và 2 (hơ nóng, làm lạnh cục bộ cảm biến, phun sương), làm các đặc trưng sai phân và độ lệch chuẩn khác với phân bố của dữ liệu huấn luyện.
+B|Dự báo cuốn chiếu sử dụng đầu ra của bước trước làm đầu vào cho bước sau nên sai số được tích lũy qua 6 bước dự báo.
+B|Master Node không có đồng bộ thời gian thực (NTP), đặc trưng giờ trong ngày đang được gán giá trị mặc định, nên mô hình chưa khai thác được chu kỳ ngày – đêm.
+B|Đánh giá mới dựa trên một lần so sánh (n = 1), chưa đủ ý nghĩa thống kê.
+P|Hướng cải thiện: đồng bộ thời gian từ Gateway xuống Master Node qua LoRa để cung cấp đặc trưng giờ chính xác; thực hiện đánh giá trên chuỗi dữ liệu nhiều ngày ở điều kiện vận hành tự nhiên (không có tác động nhân tạo) để tính MAE và RMSE với số mẫu đủ lớn; bổ sung dữ liệu huấn luyện theo mùa để mô hình thích nghi tốt hơn với điều kiện thực tế.

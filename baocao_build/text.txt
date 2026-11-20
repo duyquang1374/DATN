@@ -1,0 +1,21 @@
+Nhiệt độ và trạng thái ban đầu tại nhà màng
+Nhiệt đô, độ ẩm bên trong và bên ngoài nhà màng lần lượt là: 26.5 độ C, 59.9% và 26.2 độ C, 58.2%tất cả thiết bị đều ở chế độ auto và đều đang tắt (ngoại trừ đèn chiếu sáng)ngưỡng bật quạt là 28 độ và ngưỡng bật đèn sưởi là 18 độcác kịch bản triển khai: 
+kịch bản 1: làm mát mùa hè
+kịch bản 2: sưởi ấm mùa đông
+kịch bản 3: Dự báo sớm vi khí hậu bằng mô hình AI 
+Kịch bản 1: mô phỏng làm mát vào mùa hè
+Dụng cụ: bật lửa 
+Phương pháp: hơ gần vào 1 đầu đồng của cảm biến trong 3-5 giâyMô tả: lúc này nhiệt độ sẽ tăng dần, khi mà vượt quá ngưỡng 28 độ C quạt sẽ bắt đầu quay, tùy theo độ chênh lệch giữ nhiệt độ hiện tại và nhiệt độ ngưỡng mà quạt quat chậm hay nhanh 
+Hình 4.2. Trạng thái khi nhiệt độ trong nhà màng lớn hơn ngưỡng đặt 1 độ
+Khi nhiệt độ ở 29 độ, quá ngưỡng đặt 1.1 độ, lúc này quạt và phun sương sẽ bắt đầu hoạt động
+Hình 4.3. Trạng thái khi nhiệt độ trong nhà màng lớn hơn ngưỡng đặt từ 2 độ trở lên
+Khi nhiệt độ vượt quá ngưỡng đặt từ 2 độ trở lên (ví dụ như hình 4.3) lúc này hệ thống sẽ yêu cầu quạt chạy ở mức công suất tối đa, đồng thời rèm cửa sẽ đóng hoàn toàn để có thể giảm lượng nhiệt chiếu xuống đồng thời cũng tạo bóng mát cho cây và giúp làm giảm nhiệt nhanh hơn.
+Hình 4.3. Khi nhiệt độ giảm tốc đọ cũng giảm theo
+kịch bản 2: sưởi ấm vào mùa đông vào mùa đông
+Hình 4.4. Trạng thái ban đầu
+Hình 4.4. Đèn sưởi duy bật khi quá ngưỡng
+ Hình 4.5. Đèn sưởi giảm dần công suất khi nhiệt độ tăng
+Hình 4.6 Đèn sưởi ngừng hoạt động khi nhiệt độ bên trong đã nhỏ hơn khoảng ∆t
+kichj bản 3: mô hình AI
+Hình 4.7. Mô hình dự báo cho 30 phút sau
+HÌnh 4.8. Giá trị nhiệt độ, độ ẩm sau 30 phút dự báo

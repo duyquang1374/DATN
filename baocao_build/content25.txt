@@ -1,0 +1,229 @@
+H2|2.5. Xây dựng mô hình AI dự báo vi khí hậu
+P|Mục này trình bày toàn bộ quá trình xây dựng mô hình dự báo vi khí hậu, từ cơ sở lý thuyết đến triển khai trên vi điều khiển, trước khi tích hợp vào Master Node (mục 2.6). Nội dung bao gồm: lý thuyết về trí tuệ nhân tạo nhúng và mô hình học máy dạng cây, thu thập dữ liệu, làm sạch, tạo đặc trưng, huấn luyện, đánh giá và chuyển đổi mô hình sang mã C. Toàn bộ quy trình huấn luyện được thực hiện trên máy tính bằng Python (pandas, scikit-learn) trong môi trường Jupyter Notebook/Kaggle; chỉ có mô hình đã chuyển đổi được nạp xuống vi điều khiển. Các đoạn mã trong mục này chỉ trích phần chính minh họa cho từng bước; mã nguồn đầy đủ được trình bày ở [[Phụ lục …]].
+IMG|hinh_2_30_quy_trinh_ai.png|16
+CAP|Hình 2.30. Quy trình xây dựng mô hình AI dự báo vi khí hậu
+H3|2.5.1. Cơ sở lý thuyết
+L|a) Trí tuệ nhân tạo nhúng (TinyML)
+P|TinyML là lĩnh vực giao thoa giữa học máy và hệ thống nhúng, hướng tới việc tối ưu hóa và đưa các mô hình học máy hoạt động trực tiếp trên vi điều khiển công suất thấp (vài mW) với bộ nhớ giới hạn tính bằng KB. Trong nhà màng nông nghiệp, nơi hạ tầng viễn thông thường không ổn định, việc triển khai mô hình tại biên mang lại ba ưu thế so với AI trên đám mây: hoạt động tự chủ không phụ thuộc Internet, độ trễ suy luận tức thời (vài mili-giây) và không phát sinh chi phí thuê máy chủ (Hình 2.27, Bảng 2.7).
+IMG|hinh_2_27_cloud_vs_tinyml.png|15
+CAP|Hình 2.27. So sánh luồng xử lý giữa kiến trúc Cloud AI và TinyML
+TCAP|Bảng 2.7. So sánh kiến trúc Cloud AI và TinyML trong bài toán nhà kính
+T|Tiêu chí|Cloud AI|TinyML (nhúng tại biên)
+T|Phụ thuộc mạng|Bắt buộc 100 %, ngừng trệ khi mất kết nối|Hoàn toàn độc lập, hoạt động ngoại tuyến
+T|Độ trễ xử lý|Cao và biến động (500 ms – vài giây)|Rất thấp, có tính tất định (< 5 ms trên ESP32)
+T|Chi phí vận hành|Phí thuê máy chủ và lưu lượng 4G định kỳ|0 đồng sau khi nạp firmware
+T|An toàn dữ liệu|Truyền lên máy chủ bên thứ ba|Tính toán và lưu trữ tại chỗ
+L|b) Bài toán dự báo chuỗi thời gian vi khí hậu
+P|Vi khí hậu nhà kính có quán tính nhiệt lớn: khi bức xạ mặt trời chiếu mạnh vào buổi trưa, không khí bên trong tích tụ nhiệt dần qua hiệu ứng nhà kính và tăng vọt sau một khoảng thời gian trễ. Nếu chỉ dùng điều khiển phản hồi (kích hoạt quạt khi nhiệt độ đã vượt ngưỡng), nhiệt độ thực tế vẫn tiếp tục tăng do quán tính, gây sốc nhiệt cho cây trồng. Bài toán dự báo chuỗi thời gian ước lượng trạng thái tương lai dựa trên chuỗi quan sát lịch sử:
+EQ|ŷ(t + h) = f( x(t), x(t − 1), …, x(t − k) )            (2.1)
+P|trong đó x(t) là các thông số vi khí hậu tại thời điểm t (nhiệt độ, độ ẩm, ánh sáng); k là độ dài cửa sổ lịch sử; h là chân trời dự báo (ví dụ 30 phút). Nhờ giá trị dự báo, hệ thống kích hoạt quạt hoặc mở mái che sớm, dập tắt đỉnh quá nhiệt trước khi nó xảy ra.
+P|Dữ liệu cảm biến thô cần được chuyển đổi thành các đặc trưng có ý nghĩa vật lý trước khi đưa vào mô hình. Các kỹ thuật trích xuất đặc trưng chuỗi thời gian chính gồm: đặc trưng sai phân trễ x(t) − x(t − k) phản ánh tốc độ biến thiên; thống kê trượt (trung bình, độ lệch chuẩn) lọc nhiễu tần số cao; và mã hóa chu kỳ thời gian lượng giác để biểu diễn chu kỳ ngày – đêm 24 giờ dạng liên tục:
+EQ|hour_sin = sin(2π · t / 24),  hour_cos = cos(2π · t / 24)            (2.2)
+P|Phép biến đổi này giúp khoảng cách giữa 23h59 và 00h00 luôn liên tục, tránh bước nhảy gián đoạn khi dùng biến thời gian tuyến tính 0 – 23 (Hình 2.29).
+IMG|hinh_2_29_cyclical_encoding.png|14
+CAP|Hình 2.29. Mã hóa chu kỳ thời gian 24 giờ trên vòng tròn lượng giác hai chiều
+L|c) Mô hình học máy dạng cây
+P|Trên vi điều khiển, mô hình dạng cây được ưu tiên nhờ cấu trúc tính toán chỉ gồm các phép so sánh ngưỡng, không cần phép nhân ma trận như mạng nơ-ron. Cây quyết định hồi quy phân chia không gian dữ liệu thành các tập con qua các câu hỏi điều kiện nhị phân tại mỗi nút; tuy nhiên một cây đơn lẻ dễ bị quá khớp (overfitting). Phương pháp học tập hợp (Ensemble Learning) khắc phục bằng cách kết hợp nhiều cây: mỗi cây được huấn luyện trên một tập dữ liệu ngẫu nhiên, kết quả cuối cùng là trung bình đầu ra của B cây thành phần (Hình 2.28):
+EQ|ŷ = (1/B) × Σ T_b(x),  b = 1 … B            (2.3)
+IMG|hinh_2_28_tree_forest.png|15
+CAP|Hình 2.28. Cấu trúc cây quyết định và cơ chế tổng hợp kết quả của mô hình tập hợp cây
+P|Trong đồ án này sử dụng ExtraTreesRegressor (Extremely Randomized Trees), một biến thể của Random Forest chọn ngưỡng chia ngẫu nhiên nên giảm phương sai và huấn luyện nhanh hơn. Bảng 2.8 so sánh đặc tính giữa cây đơn lẻ và mô hình tập hợp.
+TCAP|Bảng 2.8. So sánh cây quyết định đơn lẻ và mô hình tập hợp cây
+T|Đặc tính|Cây quyết định đơn lẻ|Rừng cây (Random Forest / ExtraTrees)
+T|Cấu trúc|1 cây phân nhánh nhị phân|Tập hợp nhiều cây độc lập
+T|Quá khớp|Cao, dễ học vẹt theo nhiễu|Rất thấp nhờ lấy mẫu ngẫu nhiên và trung bình hóa
+T|Độ ổn định|Kém khi dữ liệu biến động|Vượt trội
+T|Thực thi trên MCU|Cực nhẹ, tốc độ tức thì|Rất phù hợp, chỉ gồm lệnh so sánh C99
+L|d) Chỉ số đánh giá mô hình hồi quy
+P|Sai số tuyệt đối trung bình (MAE – Mean Absolute Error) phản ánh độ lệch trung bình giữa giá trị dự báo và thực tế, có cùng đơn vị đo (°C, %RH):
+EQ|MAE = (1/N) × Σ |y_i − ŷ_i|            (2.4)
+P|Căn bậc hai sai số bình phương trung bình (RMSE) trừng phạt nặng hơn các điểm sai lệch lớn:
+EQ|RMSE = √( (1/N) × Σ (y_i − ŷ_i)² )            (2.5)
+P|Hệ số xác định R² thể hiện mức độ phù hợp của mô hình với dữ liệu, với R² = 1 là dự báo hoàn hảo. Trong đồ án, chỉ số MAE được chọn làm tiêu chí chính vì dễ diễn giải trực tiếp bằng đơn vị vật lý.
+H3|2.5.2. Thu thập dữ liệu
+L|a) Dữ liệu đo bằng cảm biến trong nhà màng
+P|Để có dữ liệu huấn luyện sát với điều kiện thực tế, một chương trình thu thập dữ liệu riêng (Collect_data) được nạp cho ESP32 kết nối cảm biến nhiệt độ – độ ẩm SHT30 và cảm biến ánh sáng BH1750 qua bus I2C, đặt bên trong nhà màng. Cứ mỗi 30 giây, ESP32 đọc ba đại lượng nhiệt độ, độ ẩm không khí và cường độ sáng, gắn mốc thời gian và ghi nối tiếp vào tệp CSV trên bộ nhớ Flash (LittleFS). Khi cần huấn luyện, người dùng truy cập web server nội bộ của ESP32 để tải tệp CSV về máy tính, nên không cần tháo thiết bị hay kết nối dây.
+P|Đoạn mã 2.1 trình bày hàm đọc cảm biến và ghi dữ liệu của chương trình thu thập. Trước khi ghi, chương trình kiểm tra lỗi đọc (giá trị NaN) và khoảng giá trị hợp lệ của từng cảm biến; mỗi bản ghi được gắn mốc thời gian, làm tròn tới 0,1 đơn vị và nối thêm vào cuối tệp CSV. Tệp được tải về qua đường dẫn /download của web server.
+CODE
+void readAndSave() {                                   // gọi mỗi 30 giây
+  float t = sht30.readTemperature(), h = sht30.readHumidity();
+  float lux = lightMeter.readLightLevel();
+  if (isnan(t) || isnan(h) || isnan(lux)) return;     // bỏ lần đọc lỗi
+  if (t < -40 || t > 125 || h < 0 || h > 100 || lux < 0) return;
+
+  getLocalTime(&timeinfo);                             // mốc thời gian (NTP)
+  strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &timeinfo);
+  File f = LittleFS.open(CSV_FILE, "a");               // ghi nối tiếp vào CSV
+  f.printf("%s,%.1f,%.1f,%.1f\n", timeStr, t, h, lux);
+  f.close();
+}
+ENDCODE
+CAP|Đoạn mã 2.1: Đọc cảm biến và ghi dữ liệu CSV trên ESP32 thu thập dữ liệu
+P|Dữ liệu được thu trong khoảng 45 ngày, từ ngày 20/08/2026 đến ngày 03/10/2026, lưu thành 6 tệp do mỗi lần tải về lại bắt đầu một tệp mới (Bảng 2.9). Trong giai đoạn này có một số khoảng gián đoạn do thiết bị mất nguồn hoặc mất kết nối; các khoảng này được xử lý ở bước làm sạch (mục 2.5.3). Như thể hiện ở Hình 2.31, nhiệt độ trong nhà màng dao động từ khoảng 25,6 °C đến 36,5 °C, độ ẩm từ khoảng 54 % đến 100 % và cường độ sáng lên tới khoảng 54.600 lux, tức ngưỡng bão hòa của cảm biến BH1750 (giá trị trung bình 30 phút). Mỗi bản ghi gồm 4 trường: timestamp, temperature (°C), humidity (%RH) và light (lux).
+TCAP|Bảng 2.9. Dữ liệu cảm biến thu thập trong nhà màng
+T|Tệp dữ liệu|Thời gian bắt đầu|Thời gian kết thúc|Số bản ghi
+T|data_v0.csv|20/08/2026 00:00|29/08/2026 23:00|28.681
+T|data_v1.csv|30/08/2026 12:52|04/09/2026 23:25|10.833
+T|data_v2.csv|04/09/2026 23:25|10/09/2026 17:40|14.558
+T|data_v3.csv|10/09/2026 17:40|14/09/2026 19:12|11.689
+T|data_v4.csv|14/09/2026 19:24|16/09/2026 16:42|5.432
+T|data_v5.csv|17/09/2026 00:00|03/10/2026 23:00|48.841
+T|Tổng cộng|≈ 45 ngày|chu kỳ lấy mẫu 30 s|120.034
+L|b) Dữ liệu bổ sung từ thời tiết thực tế tại Hà Nội
+P|Mặc dù đã thu thập được 45 ngày dữ liệu, toàn bộ đều nằm trong giai đoạn cuối hè – đầu thu (08–10/2026), chưa đủ đa dạng (không có mùa đông, mùa xuân hay chuyển mùa rõ rệt) để mô hình tổng quát hóa tốt. Vì vậy, dữ liệu huấn luyện được bổ sung từ số liệu thời tiết thực tế theo giờ tại Hà Nội (nhiệt độ, độ ẩm ở độ cao 2 m và bức xạ mặt trời) lấy từ cơ sở dữ liệu tái phân tích ERA5 thông qua Open-Meteo Historical API. Do điều kiện trong nhà màng khác ngoài trời (ẩm hơn, biên độ nhiệt ngày – đêm nhỏ hơn), số liệu này được hiệu chỉnh theo dữ liệu cảm biến thật trong cùng giai đoạn:
+B|Nhiệt độ và độ ẩm: hồi quy tuyến tính kết hợp hiệu chỉnh độ lệch theo từng giờ trong ngày.
+B|Ánh sáng: quy đổi bức xạ (W/m²) sang lux bằng hệ số riêng cho từng giờ, phản ánh hướng đặt cảm biến và bóng che.
+B|Nội suy từ chu kỳ 1 giờ xuống 30 giây, thêm nhiễu ngẫu nhiên có tương quan thời gian và làm tròn theo độ phân giải của cảm biến (0,1 °C; 0,1 %RH; bước lượng tử của BH1750).
+P|Quá trình hiệu chỉnh và sinh dữ liệu được thực hiện bằng script generate_hanoi_data.ps1 (Đoạn mã 2.2). Đầu tiên, các hệ số hồi quy tuyến tính T_trong = a·T_ngoài + b được ước lượng bằng phương pháp bình phương tối thiểu trên những giờ có cả dữ liệu cảm biến và dữ liệu ERA5; phần sai lệch còn lại được lấy trung bình theo từng giờ trong ngày. Sau đó, với mỗi bước 30 giây, giá trị ngoài trời được nội suy và áp dụng công thức hiệu chỉnh, cộng thêm nhiễu tự hồi quy bậc 1 (AR(1)) để mô phỏng dao động chậm của cảm biến thật.
+CODE
+$fT = Fit @($P.at) @($P.st)      # hồi quy: T_trong = a*T_ngoài + b
+$fH = Fit @($P.ah) @($P.sh)      # tương tự cho độ ẩm
+foreach ($g in ($P | Group-Object hr)) {           # sai lệch còn lại theo giờ
+    $resT[[int]$g.Name] = ($g.Group | ForEach-Object { $_.st - ($fT[0]*$_.at + $fT[1]) } |
+                           Measure-Object -Average).Average
+}
+# Sinh mẫu mỗi 30 s: hiệu chỉnh + nhiễu AR(1)
+#   T   = aT*tOut + bT + resT[giờ] + nT
+#   lux = R * luxFactor[giờ] * exp(nL),  giới hạn ở 54612.5 lux (bão hòa BH1750)
+ENDCODE
+CAP|Đoạn mã 2.2: Hiệu chỉnh dữ liệu thời tiết ERA5 theo cảm biến trong nhà màng
+P|Kết quả là 5 tệp dữ liệu bổ sung với tổng cộng khoảng 659.000 bản ghi (Bảng 2.10), mở rộng dữ liệu huấn luyện sang các năm 2023 – 2026, bao gồm cả giai đoạn bão Yagi (09/2024), giúp mô hình gặp nhiều kiểu thời tiết hơn. Dữ liệu bổ sung chỉ được dùng để huấn luyện, không bao giờ dùng để đánh giá: do được nội suy từ số liệu theo giờ nên nó mượt hơn thực tế, sai số đo trên nó sẽ thấp một cách giả tạo.
+TCAP|Bảng 2.10. Dữ liệu bổ sung sinh từ thời tiết thực tế tại Hà Nội (ERA5, đã hiệu chỉnh)
+T|Tệp dữ liệu|Giai đoạn|Số bản ghi|Mục đích
+T|hanoi_2023-08-01_2023-09-14.csv|01/08 – 14/09/2023|129.481|Đa dạng hóa thời tiết theo năm
+T|hanoi_2024-08-15_2024-09-30.csv|15/08 – 30/09/2024|135.241|Bao gồm giai đoạn bão Yagi
+T|hanoi_2025-08-01_2025-09-14.csv|01/08 – 14/09/2025|129.481|Đa dạng hóa thời tiết theo năm
+T|hanoi_2025-09-15_2025-10-31.csv|15/09 – 31/10/2025|135.241|Giai đoạn chuyển mùa
+T|hanoi_2026-09-17_2026-10-31.csv|17/09 – 31/10/2026|129.481|Giai đoạn chuyển mùa
+T|Tổng cộng|chu kỳ 30 s|658.925|Chỉ dùng để huấn luyện
+
+IMG|hinh_2_31_du_lieu_cam_bien.png|16
+CAP|Hình 2.31. Dữ liệu nhiệt độ, độ ẩm và cường độ sáng thu thập trong nhà màng
+H3|2.5.3. Làm sạch và tiền xử lý dữ liệu
+P|Dữ liệu cảm biến thực tế luôn chứa lỗi do nhiễu điện, dây lỏng, cảm biến treo hoặc mất nguồn. Nếu đưa trực tiếp vào huấn luyện, các điểm lỗi sẽ tạo ra những mẫu học sai lệch. Mỗi tệp được xử lý theo trình tự sau:
+B|Chuẩn hóa thời gian: chuyển trường timestamp về kiểu thời gian, loại các dòng không đọc được, sắp xếp theo thời gian và loại các bản ghi trùng.
+B|Loại giá trị phi vật lý: nhiệt độ ngoài khoảng −10 đến 70 °C, độ ẩm ngoài khoảng 0 – 100 %, cường độ sáng âm.
+B|Loại bước nhảy bất thường: nhiệt độ thay đổi quá 3 °C hoặc độ ẩm thay đổi quá 15 %RH giữa hai lần đọc liên tiếp (30 s), vượt quá tốc độ biến thiên vật lý có thể xảy ra.
+B|Phát hiện cảm biến bị treo: nhiệt độ lặp lại y hệt từ 40 lần đọc liên tiếp trở lên (20 phút). Quy tắc này không áp dụng cho độ ẩm và ánh sáng, vì độ ẩm 100 % khi có sương và ánh sáng 0 lux về ban đêm có thể đứng yên nhiều giờ một cách hoàn toàn bình thường.
+B|Chia đoạn liên tục: dữ liệu được cắt thành các đoạn tại những vị trí có điểm lỗi hoặc mất dữ liệu quá 10 phút. Các đoạn không được nối với nhau, để không tạo ra đặc trưng giả bắc cầu qua chỗ dữ liệu bị đứt.
+B|Lấy mẫu lại: mỗi đoạn được lấy trung bình về chu kỳ cố định 5 phút, đúng bằng chu kỳ lấy mẫu của mô hình trên Master Node; chỉ nội suy các khoảng trống ngắn không quá 3 bước (15 phút); các đoạn ngắn hơn 3 giờ bị loại vì không đủ lịch sử để tạo đặc trưng.
+P|Đoạn mã 2.3 trích phần đánh dấu các điểm lỗi theo các quy tắc trên và thay chúng bằng giá trị rỗng (NaN); Đoạn mã 2.4 trích phần cắt dữ liệu thành các đoạn liên tục và lấy mẫu lại về chu kỳ 5 phút.
+CODE
+T, H = df["temperature"], df["humidity"]
+err  = (T < -10) | (T > 70) | (H < 0) | (H > 100) | (df["light"] < 0)  # phi vật lý
+err |= (T.diff().abs() > 3.0) | (H.diff().abs() > 15.0)               # bước nhảy / 30 s
+run  = (T != T.shift()).cumsum()                                       # cảm biến treo:
+err |= run.map(run.value_counts()) >= 40                               # lặp >= 40 lần
+df.loc[err, ["temperature", "humidity", "light"]] = np.nan
+ENDCODE
+CAP|Đoạn mã 2.3: Các quy tắc phát hiện và loại bỏ dữ liệu lỗi
+CODE
+gap    = df.index.to_series().diff() > pd.Timedelta(minutes=10)
+seg_id = (gap | ~valid).cumsum()              # điểm lỗi / mất > 10 phút -> đoạn mới
+for _, part in df[valid].groupby(seg_id[valid]):
+    if part.index[-1] - part.index[0] < pd.Timedelta(hours=3):
+        continue                              # đoạn ngắn hơn 3 giờ -> bỏ
+    seg = part.resample("5min").mean().interpolate(limit=3).dropna()
+ENDCODE
+CAP|Đoạn mã 2.4: Chia đoạn liên tục và lấy mẫu lại về chu kỳ 5 phút
+H3|2.5.4. Tạo đặc trưng và nhãn dự báo
+P|Từ mỗi đoạn dữ liệu sạch, tại mỗi thời điểm t chương trình tạo một vector 27 đặc trưng theo các kỹ thuật đã trình bày ở mục 2.5.1b. Ánh sáng được biến đổi logarit ln(1 + lux) trước khi tính đặc trưng, vì dải đo rất rộng (từ 0 đến hơn 50.000 lux) và phân bố lệch mạnh. Các đặc trưng được tổng hợp trong Bảng 2.11.
+TCAP|Bảng 2.11. Danh sách 27 đặc trưng đầu vào của mô hình
+T|Nhóm đặc trưng|Đặc trưng|Số lượng|Ý nghĩa
+T|Giá trị hiện tại|temperature, humidity, log_light|3|Trạng thái vi khí hậu tại thời điểm t
+T|Sai phân trễ|x(t) − x(t − k), k = 1, 2, 3, 6, 12 bước (5, 10, 15, 30, 60 phút) cho mỗi đại lượng|15|Xu hướng và tốc độ biến thiên ngắn hạn, trung hạn
+T|Thống kê trượt|Trung bình và độ lệch chuẩn của 6 mẫu gần nhất (30 phút) cho mỗi đại lượng|6|Mức nền và mức dao động, giúp lọc nhiễu cảm biến
+T|Bão hòa ánh sáng|light_sat6: tỷ lệ mẫu cảm biến ánh sáng bão hòa trong 6 mẫu gần nhất|1|Nhận biết nắng gắt vượt ngưỡng đo của BH1750
+T|Thời gian trong ngày|hour_sin, hour_cos|2|Mã hóa chu kỳ ngày – đêm dạng vòng tròn (công thức 2.2)
+T|Tổng||27|
+P|Nhãn dự báo không phải là giá trị tuyệt đối mà là mức thay đổi của từng đại lượng sau khoảng thời gian dự báo: Δy = y(t + h) − y(t). Lý do là mô hình dạng cây chỉ trả về các giá trị đã gặp trong tập huấn luyện và không ngoại suy được ra ngoài dải đó; việc học mức thay đổi giúp mô hình ổn định hơn khi nhiệt độ hoặc độ ẩm nằm ngoài khoảng đã thu thập. Khi dự báo, giá trị tương lai được khôi phục bằng ŷ(t + h) = y(t) + Δŷ. Trong phiên bản hiện tại, khoảng dự báo của nhãn là h = 6 bước, tức 30 phút [[thống nhất với cách dùng mô hình trên Master Node ở mục 2.6]].
+P|Đoạn mã 2.5 trích phần tạo 27 đặc trưng và nhãn cho từng đoạn. Thứ tự các cột đặc trưng ở đây phải khớp tuyệt đối với thứ tự mà chương trình trên Master Node đưa vào mô hình, vì mô hình chỉ nhận một mảng số không kèm tên cột.
+CODE
+for name in ["temperature", "humidity", "log_light"]:   # log_light = ln(1 + lux)
+    s = base[name]
+    X[name] = s                                         # giá trị hiện tại
+    for k in (1, 2, 3, 6, 12):
+        X[f"{name}_d{k}"] = s - s.shift(k)              # sai phân trễ
+    X[f"{name}_mean6"] = s.rolling(6).mean()            # thống kê trượt 30 phút
+    X[f"{name}_std6"]  = s.rolling(6).std()
+X["light_sat6"] = sat.rolling(6).mean()                # tỷ lệ mẫu bão hòa
+X["hour_sin"], X["hour_cos"] = np.sin(2*np.pi*h/24), np.cos(2*np.pi*h/24)
+Y = base.shift(-6) - base                              # nhãn Δy sau 6 bước (30 phút)
+ENDCODE
+CAP|Đoạn mã 2.5: Tạo 27 đặc trưng và nhãn dự báo
+P|Đặc trưng và nhãn được tính riêng trong từng đoạn liên tục; các mẫu thiếu lịch sử ở đầu đoạn hoặc thiếu nhãn ở cuối đoạn bị loại bỏ. Tổng số mẫu huấn luyện thu được là [[điền số mẫu: cảm biến thật … mẫu, dữ liệu bổ sung … mẫu]].
+H3|2.5.5. Lựa chọn mô hình và huấn luyện
+P|Mô hình được chọn là ExtraTreesRegressor (Extremely Randomized Trees) của thư viện scikit-learn, với các ưu điểm đã phân tích ở mục 2.5.1c. So với mạng nơ-ron, mô hình dạng cây suy luận chỉ gồm các phép so sánh ngưỡng nên tính toán rất nhẹ, không cần chuẩn hóa dữ liệu đầu vào, và có thể chuyển trực tiếp thành mã C. Mỗi đại lượng (nhiệt độ, độ ẩm, ánh sáng) được huấn luyện một mô hình riêng với cùng bộ siêu tham số trong Bảng 2.12.
+TCAP|Bảng 2.12. Siêu tham số của mô hình ExtraTreesRegressor
+T|Siêu tham số|Giá trị|Lý do lựa chọn
+T|n_estimators (số cây)|40|Đủ để lấy trung bình giảm phương sai, vẫn vừa bộ nhớ Flash của ESP32
+T|max_depth (độ sâu tối đa)|5|Mỗi cây tối đa 31 nút quyết định; giới hạn kích thước mã C và thời gian suy luận
+T|min_samples_leaf|15|Mỗi nút lá đại diện cho ít nhất 15 mẫu, tránh học thuộc nhiễu (quá khớp)
+T|random_state|0|Đảm bảo kết quả huấn luyện lặp lại được
+P|Giới hạn độ sâu bằng 5 là ràng buộc quan trọng nhất: nhờ đó kích thước mô hình gần như không tăng khi bổ sung thêm dữ liệu huấn luyện, và file mã C xuất ra cho ESP32 luôn nằm trong giới hạn bộ nhớ.
+P|Sau bước đánh giá ở mục 2.5.6, mô hình cuối cùng của mỗi đại lượng được huấn luyện trên toàn bộ dữ liệu sạch và lưu thành tệp joblib (Đoạn mã 2.6), kèm tệp features.json ghi lại danh sách và thứ tự đặc trưng.
+CODE
+MODEL_PARAMS = dict(n_estimators=40, max_depth=5, min_samples_leaf=15, random_state=0)
+for t in ["temperature", "humidity", "log_light"]:     # một mô hình cho mỗi đại lượng
+    model = ExtraTreesRegressor(**MODEL_PARAMS).fit(X_fit, Y_fit[t])
+    joblib.dump(model, f"model_{t}.joblib")
+ENDCODE
+CAP|Đoạn mã 2.6: Huấn luyện và lưu mô hình ExtraTreesRegressor
+H3|2.5.6. Phương pháp và kết quả đánh giá
+P|Dữ liệu chuỗi thời gian có tính tương quan mạnh giữa các mẫu liền kề, nên việc chia ngẫu nhiên tập huấn luyện – kiểm tra sẽ làm rò rỉ thông tin và cho kết quả lạc quan giả tạo. Mô hình được đánh giá bằng phương pháp kiểm định chéo giữ lại từng ngày (leave-one-day-out): lần lượt lấy mỗi ngày có dữ liệu cảm biến thật (tối thiểu 50 mẫu) làm tập kiểm tra, huấn luyện trên phần còn lại, có vùng đệm 1 giờ trước và sau ngày kiểm tra để nhãn của tập huấn luyện không chồng lấn sang tập kiểm tra. Sai số được đo bằng MAE (công thức 2.4) và so sánh với ba cấu hình:
+B|Baseline (dự báo giữ nguyên): coi giá trị sau 30 phút bằng giá trị hiện tại, tức Δŷ = 0. Mô hình chỉ có giá trị khi tốt hơn baseline này.
+B|Mô hình chỉ huấn luyện trên dữ liệu cảm biến thật.
+B|Mô hình huấn luyện trên dữ liệu cảm biến thật kết hợp dữ liệu bổ sung Hà Nội.
+P|Quy trình kiểm định được cài đặt như Đoạn mã 2.7. Với mỗi ngày kiểm tra, mặt nạ outside chọn các mẫu nằm ngoài ngày đó cộng vùng đệm; sai số baseline bằng trung bình trị tuyệt đối của nhãn, vì baseline luôn dự báo mức thay đổi bằng 0.
+CODE
+for d in sorted(day[real_all].unique()):          # mỗi ngày cảm biến thật
+    te = (day == d) & real_all                    # tập kiểm tra
+    lo = X_all.index[te].min() - PURGE            # vùng đệm 1 giờ
+    hi = X_all.index[te].max() + PURGE
+    tr = (X_all.index < lo) | (X_all.index > hi)  # tập huấn luyện
+    y  = Y_all[t].values[te]
+    mae_baseline = np.mean(np.abs(y))             # baseline: Δŷ = 0
+    m = ExtraTreesRegressor(**MODEL_PARAMS).fit(X_all[tr], Y_all[t][tr])
+    mae_model = np.mean(np.abs(y - m.predict(X_all[te])))
+ENDCODE
+CAP|Đoạn mã 2.7: Kiểm định chéo giữ lại từng ngày có vùng đệm
+TCAP|Bảng 2.13. Sai số MAE trung bình theo kiểm định chéo giữ lại từng ngày
+T|Đại lượng|Baseline|Chỉ cảm biến|Cảm biến + Hà Nội|Cải thiện so với baseline
+T|Nhiệt độ (°C)|[[ ]]|[[ ]]|[[ ]]|[[ ]] %
+T|Độ ẩm (%RH)|[[ ]]|[[ ]]|[[ ]]|[[ ]] %
+T|Ánh sáng (ln(1 + lux))|[[ ]]|[[ ]]|[[ ]]|[[ ]] %
+P|[[Nhận xét sau khi có số liệu: mô hình giảm sai số bao nhiêu % so với baseline; dữ liệu bổ sung Hà Nội giúp cải thiện hay làm xấu đi biến nào, và cấu hình nào được chọn làm mô hình cuối cùng]].
+P|Sau khi lựa chọn cấu hình, mô hình cuối cùng được huấn luyện lại trên toàn bộ dữ liệu sạch. Hình 2.32 so sánh giá trị thực tế và giá trị dự báo của mô hình trên các đoạn dữ liệu cảm biến thật, cho thấy mô hình bám theo xu hướng biến thiên ngày – đêm của vi khí hậu.
+IMG_PH|[[Chèn hình forecast_plot.png xuất ra từ notebook]]
+CAP|Hình 2.32. So sánh giá trị thực tế và giá trị dự báo trước 30 phút trên dữ liệu cảm biến thật
+H3|2.5.7. Chuyển đổi mô hình sang mã C cho ESP32
+P|Các mô hình sau huấn luyện được lưu dưới dạng tệp joblib cùng tệp features.json ghi lại danh sách và thứ tự 27 đặc trưng, chu kỳ lấy mẫu và khoảng dự báo, để chương trình trên Master Node tính đặc trưng đúng như lúc huấn luyện. Tiếp theo, thư viện emlearn chuyển mỗi mô hình thành mã C tĩnh theo phương pháp inline: mỗi cây quyết định trở thành một hàm C gồm các câu lệnh if – else lồng nhau so sánh đặc trưng với ngưỡng, và hàm dự báo trả về trung bình đầu ra của 40 cây (minh họa cho công thức 2.3). Kiểu dữ liệu float được giữ nguyên để không mất độ chính xác ở các đặc trưng có giá trị nhỏ như hour_sin, hour_cos. Script export_to_c.py tự động sinh ba tệp tiêu đề (Đoạn mã 2.8) và sao chép vào thư mục chương trình Master Node. Một phần mã C được sinh ra cho mô hình nhiệt độ được trình bày ở Đoạn mã 2.9; kích thước của các mô hình được tổng hợp trong Bảng 2.14.
+CODE
+for t in ["temperature", "humidity", "log_light"]:
+    model  = joblib.load(f"model_{t}.joblib")
+    cmodel = emlearn.convert(model, method="inline", dtype="float")  # cây -> if/else
+    cmodel.save(file=f"forecast_{t}.h", name=f"forecast_{t}")       # tệp tiêu đề C
+ENDCODE
+CAP|Đoạn mã 2.8: Chuyển đổi mô hình sang mã C bằng thư viện emlearn
+CODE
+static inline float forecast_temperature_tree_0(const float *features, int32_t n) {
+    if (features[6] < 33.626952f) {          // temperature_mean6 < 33,63 °C ?
+        if (features[22] < 6.405860f) {      // log_light_mean6
+            // ...
+            return -0.310800f;               // nút lá: mức thay đổi dự báo
+    // ...
+}
+float forecast_temperature_predict(const float *features, int32_t n) {
+    float avg = 0;
+    avg += forecast_temperature_tree_0(features, n);   // ... đến tree_39
+    return avg / 40;                         // trung bình 40 cây (công thức 2.3)
+}
+ENDCODE
+CAP|Đoạn mã 2.9: Một phần mã C của mô hình dự báo nhiệt độ do emlearn sinh ra
+TCAP|Bảng 2.14. Kích thước các mô hình sau khi chuyển đổi sang mã C
+T|Tệp mã C|Số cây|Số nút quyết định|Số nút lá
+T|forecast_temperature.h|40|811|851
+T|forecast_humidity.h|40|983|1.023
+T|forecast_log_light.h|40|992|1.032
+T|Tổng|120|2.786|2.906
+P|Do mô hình được biên dịch thành mã lệnh nằm trong bộ nhớ Flash, không cần thư viện học máy hay bộ nhớ động khi chạy, RAM chỉ dùng cho vector 27 đặc trưng và bộ đệm lịch sử. Dung lượng Flash mà ba mô hình chiếm sau khi biên dịch là [[điền: so sánh dung lượng chương trình Master Node khi biên dịch có và không có mô hình, ví dụ … KB]]. Cách mô hình được gọi và tích hợp vào chu trình hoạt động của Master Node được trình bày ở mục 2.6.3.5.

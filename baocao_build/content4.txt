@@ -1,0 +1,65 @@
+H2|4.5. Kịch bản 4: Kiểm thử độ bền truyền thông LoRa
+H3|4.5.1. Bối cảnh thực tế
+P|Trong thực tế, nhà màng thường được đặt cách nhà điều hành từ vài chục đến vài trăm mét, nằm ngoài vùng phủ sóng Wi-Fi. Toàn bộ dữ liệu giám sát và lệnh điều khiển của hệ thống vì vậy phụ thuộc vào đường truyền LoRa 433 MHz giữa các nút. Đường truyền này chịu nhiều tác động bất lợi: suy hao do khoảng cách và vật cản (tường, khung thép, mái che, thân cây, hơi nước từ phun sương), nhiễu điện từ phát ra từ các tải công suất như quạt DC, bơm và mạch MOSFET băm xung PWM, và đặc biệt là xung đột kênh truyền do bốn thiết bị (Gateway, Master Node và hai Sensor Node) cùng dùng chung một kênh ở chế độ truyền trong suốt (Mode 0) của module E32-433T20D.
+P|Hậu quả của việc mất gói không chỉ là dữ liệu hiển thị trên dashboard bị gián đoạn. Nếu mất gói dữ liệu độ ẩm đất, bộ điều khiển tưới có thể ra quyết định dựa trên thông tin cũ; nếu mất gói lệnh điều khiển, thiết bị không chuyển trạng thái theo yêu cầu của người vận hành, chẳng hạn lệnh tắt bơm. Kịch bản này nhằm định lượng độ tin cậy của liên kết LoRa và kiểm chứng hiệu quả của các cơ chế bảo vệ truyền thông đã thiết kế, được tổng hợp trong Bảng 4.5.
+TCAP|Bảng 4.5. Các cơ chế đảm bảo độ tin cậy truyền thông LoRa của hệ thống
+T|Liên kết|Đặc điểm gói tin|Cơ chế bảo vệ
+T|Sensor Node → Master Node|Gói nhị phân 13 byte, chu kỳ 10 s|Mã kiểm tra CRC-16 (Modbus); gói xác nhận ACK 4 byte; chờ ACK 800 ms, phát lại tối đa 2 lần với thời gian chờ ngẫu nhiên 200 – 500 ms; hai node phát lệch pha nhau (3,0 s và 6,5 s trong chu kỳ 10 s)
+T|Master Node → Gateway|Gói JSON trạng thái < 400 byte, chu kỳ 10 s|Chia nhỏ thành các khối 54 byte phù hợp bộ đệm 58 byte của E32; nghe trước khi phát (nếu đang có dữ liệu đến thì ưu tiên nhận, hoãn phát); khoảng cách tối thiểu 2 s giữa hai lần phát
+T|Gateway → Master Node|Gói JSON lệnh điều khiển|Phát đúp mỗi lệnh; Smart Retry: sau 2,5 s chưa nhận gói phản hồi trạng thái thì phát lại, tối đa 2 lần
+T|Phía thu (Master, Gateway)|Luồng byte trên cùng một kênh|Bỏ byte nhiễu trước ký tự '{'; hủy gói JSON dở dang sau 1,5 s (Master) / 3 s (Gateway); Gateway lọc gói nhị phân của mạng cảm biến (header 0xAA, 0x55) lẫn vào luồng JSON
+T|Giám sát kết nối|–|Master đánh dấu Sensor Node mất kết nối sau 35 s và tự đóng van của luống tương ứng; Gateway chỉ ghi dữ liệu khi có gói trong vòng 30 s
+IMG_PH|[[Chèn hình: sơ đồ bố trí các nút và các vị trí đo P1 – P4]]
+CAP|Hình 4.11. Sơ đồ bố trí các nút mạng và vị trí thử nghiệm truyền thông
+H3|4.5.2. Quy trình kích hoạt
+P|Do module E32 ở chế độ truyền trong suốt không cung cấp chỉ số cường độ tín hiệu (RSSI) cho vi điều khiển, độ tin cậy của liên kết được đánh giá thông qua tỷ lệ gói tin nhận thành công. Dữ liệu được thu thập từ nhật ký Serial Monitor của từng nút (bật hiển thị mốc thời gian), kết hợp quan sát trực tiếp trên dashboard. Kịch bản gồm bốn thử nghiệm sau.
+L|a) Thử nghiệm 4.1 – Tỷ lệ nhận gói theo khoảng cách và vật cản (Master Node → Gateway)
+B|Giữ Gateway cố định, lần lượt đặt Master Node tại các vị trí: P1 – cùng phòng, cách 1 m, không vật cản; P2 – cách khoảng 10 m, qua 1 bức tường; P3 – cách khoảng 30 m, qua 2 bức tường hoặc khác tầng; P4 – ngoài trời, cách 50 – 100 m [[điều chỉnh theo địa điểm thực tế]].
+B|Tại mỗi vị trí, hệ thống hoạt động liên tục 30 phút. Mỗi gói trạng thái mang trường thời gian hoạt động "up" (giây) của Master Node, nên số gói đã phát được tính bằng N_phát = (up_cuối − up_đầu)/10 + 1 (khoảng 180 gói). Số gói nhận thành công N_nhận được đếm từ các dòng "[LoRa RAW]" giải mã hợp lệ trên Gateway; đồng thời ghi lại số dòng "JSON parse failed" và "LoRa RX Timeout".
+L|b) Thử nghiệm 4.2 – Độ tin cậy và độ trễ của lệnh điều khiển (Gateway → Master Node)
+B|Từ dashboard, gửi 50 lệnh bật/tắt xen kẽ cho đèn chiếu sáng (thiết bị an toàn để đóng/ngắt nhiều lần).
+B|Với mỗi lệnh, ghi nhận: lệnh thành công ngay lần đầu, thành công nhờ phát lại (xuất hiện dòng "[LoRa Retry n]" trên Gateway) hay thất bại (thiết bị không đổi trạng thái).
+B|Độ trễ lệnh được tính từ mốc thời gian dòng "[LoRa Tx]" (Gateway phát lệnh) đến dòng "State Sync OK" (Gateway nhận phản hồi trạng thái từ Master Node).
+B|Thực hiện ở hai điều kiện: (1) các tải công suất đều tắt; (2) quạt chạy 100 % và bơm phun sương hoạt động để tạo nhiễu điện từ, đồng thời hai Sensor Node vẫn phát dữ liệu bình thường.
+L|c) Thử nghiệm 4.3 – Mạng cảm biến nhiều nút và cơ chế ACK/phát lại (Sensor Node → Master Node)
+B|Cho cả hai Sensor Node và Master Node hoạt động liên tục 30 phút (khoảng 180 gói mỗi node).
+B|Trên Serial Monitor của mỗi Sensor Node, đếm số gói được xác nhận ngay lần phát thứ nhất, số gói phải phát lại (lần thứ 2 hoặc 3), số gói thất bại ("TX FAIL") và ghi lại thời gian nhận ACK ("Da nhan ACK sau … ms").
+B|Trên Master Node, kiểm tra tính liên tục của số thứ tự gói msg_id để xác định gói bị mất, và đếm số gói bị loại do sai mã CRC-16.
+B|(Tùy chọn) Nạp lại hai Sensor Node với cùng độ lệch pha để buộc chúng phát đồng thời, lặp lại phép đo nhằm chứng minh hiệu quả của cơ chế lệch pha và phát lại ngẫu nhiên.
+L|d) Thử nghiệm 4.4 – Khả năng phát hiện mất kết nối và tự phục hồi
+B|Ngắt nguồn Sensor Node 2 trong lúc van 2 đang tưới ở chế độ AUTO: ghi lại thời điểm Master Node báo "Sensor Node 2 mat ket noi" và kiểm tra van 2 có tự động đóng hay không. Cấp nguồn trở lại và ghi thời gian đến khi dữ liệu luống 2 xuất hiện lại trên dashboard.
+B|Ngắt nguồn Master Node trong 60 s: quan sát Gateway dừng ghi dữ liệu và dashboard báo mất kết nối; cấp nguồn trở lại và ghi thời gian đến khi Gateway nhận lại gói trạng thái đầu tiên mà không cần khởi động lại Gateway.
+B|Trong suốt các thử nghiệm, đếm số lần Gateway loại bỏ gói nhị phân lạ của mạng cảm biến ("Loai bo nhieu la") và kiểm tra không có gói JSON nào bị hỏng do các gói lạ này.
+IMG_PH|[[Chèn hình: ảnh chụp nhật ký Serial Monitor minh họa ACK, phát lại và Smart Retry]]
+CAP|Hình 4.12. Nhật ký truyền thông ghi nhận cơ chế ACK, phát lại và Smart Retry
+H3|4.5.3. Các tiêu chí đo đạc và đánh giá
+P|Các đại lượng đánh giá được định nghĩa như sau:
+B|Tỷ lệ nhận gói thành công: PDR = N_nhận / N_phát × 100 %; tỷ lệ mất gói PLR = 100 % − PDR.
+B|Tỷ lệ lệnh thành công: số lệnh được thực thi / tổng số lệnh gửi × 100 %, tách riêng phần thành công nhờ cơ chế phát lại.
+B|Độ trễ lệnh: thời gian từ lúc Gateway phát lệnh đến khi nhận phản hồi trạng thái, tính giá trị trung bình và lớn nhất.
+B|Thời gian phát hiện mất kết nối và thời gian phục hồi kết nối.
+TCAP|Bảng 4.6. Kết quả thử nghiệm 4.1 – Tỷ lệ nhận gói theo khoảng cách và vật cản
+T|Vị trí|Khoảng cách / vật cản|N_phát|N_nhận|PDR (%)|Gói lỗi / hủy
+T|P1|1 m, không vật cản|[[ ]]|[[ ]]|[[ ]]|[[ ]]
+T|P2|~10 m, 1 tường|[[ ]]|[[ ]]|[[ ]]|[[ ]]
+T|P3|~30 m, 2 tường|[[ ]]|[[ ]]|[[ ]]|[[ ]]
+T|P4|50 – 100 m, ngoài trời|[[ ]]|[[ ]]|[[ ]]|[[ ]]
+TCAP|Bảng 4.7. Kết quả thử nghiệm 4.2 – Độ tin cậy và độ trễ lệnh điều khiển (50 lệnh/điều kiện)
+T|Điều kiện|Thành công lần đầu|Thành công nhờ phát lại|Thất bại|Độ trễ TB / lớn nhất (s)
+T|Tải công suất tắt|[[ ]]|[[ ]]|[[ ]]|[[ ]]
+T|Quạt 100 % + phun sương + 2 Sensor Node|[[ ]]|[[ ]]|[[ ]]|[[ ]]
+TCAP|Bảng 4.8. Kết quả thử nghiệm 4.3 – Mạng cảm biến nhiều nút (30 phút/node)
+T|Node|Số gói phát|ACK lần 1|Phải phát lại|Thất bại|Sai CRC|Thời gian ACK TB (ms)
+T|Sensor Node 1|[[ ]]|[[ ]]|[[ ]]|[[ ]]|[[ ]]|[[ ]]
+T|Sensor Node 2|[[ ]]|[[ ]]|[[ ]]|[[ ]]|[[ ]]|[[ ]]
+TCAP|Bảng 4.9. Tổng hợp tiêu chí đánh giá kịch bản 4
+T|Tiêu chí|Yêu cầu|Kết quả|Đánh giá
+T|PDR Master → Gateway trong phạm vi nhà màng (P1 – P3)|≥ 95 %|[[ ]]|[[ ]]
+T|Tỷ lệ lệnh điều khiển thành công (sau phát lại)|≥ 99 %|[[ ]]|[[ ]]
+T|Độ trễ lệnh điều khiển|≤ 1 s khi không phát lại; ≤ 6 s khi có phát lại|[[ ]]|[[ ]]
+T|PDR Sensor Node → Master (sau phát lại)|≥ 98 %|[[ ]]|[[ ]]
+T|Gói hỏng được chấp nhận|0 gói (CRC-16 loại bỏ toàn bộ gói sai)|[[ ]]|[[ ]]
+T|Phát hiện Sensor Node mất kết nối|≤ 35 s, van luống tương ứng tự đóng|[[ ]]|[[ ]]
+T|Tự phục hồi kết nối|Có dữ liệu lại sau ≤ 1 chu kỳ (10 s) kể từ khi node khởi động xong, không cần khởi động lại Gateway|[[ ]]|[[ ]]
+T|Lọc gói lạ trên Gateway|Không có gói JSON hỏng do gói nhị phân của mạng cảm biến|[[ ]]|[[ ]]
+P|Nhận xét: [[Viết sau khi có số liệu, gợi ý các ý: (1) PDR giảm thế nào khi tăng khoảng cách và vật cản, phạm vi hoạt động tin cậy; (2) tỷ lệ lệnh cần phát lại tăng khi có nhiễu từ tải công suất và Smart Retry đã bù lại như thế nào; (3) cơ chế lệch pha và ACK giúp hai Sensor Node gần như không mất gói; (4) hệ thống an toàn khi mất kết nối vì van tự đóng; (5) hạn chế: E32 không cung cấp RSSI, chưa thử ở khoảng cách lớn hoặc thời tiết mưa]].

@@ -1,0 +1,18 @@
+1. Thu thập dữ liệu
+ESP32 + SHT30 + BH1750, chu kỳ 30 s, lưu CSV (LittleFS); bổ sung dữ liệu thời tiết Hà Nội (ERA5)
+2. Làm sạch dữ liệu
+Loại giá trị phi vật lý, bước nhảy bất thường, cảm biến treo; chia đoạn liên tục; lấy mẫu lại 5 phút
+3. Tạo đặc trưng và nhãn
+27 đặc trưng (hiện tại, sai phân, thống kê trượt, bão hòa sáng, giờ sin/cos); nhãn Δy
+4. Huấn luyện mô hình
+ExtraTreesRegressor: 40 cây, độ sâu 5, min_samples_leaf 15 (nhiệt độ, độ ẩm, ánh sáng)
+5. Đánh giá
+Kiểm định chéo giữ lại từng ngày, vùng đệm 1 giờ, so sánh MAE với baseline
+6. Xuất mã C và nạp ESP32
+emlearn → forecast_*.h → biên dịch cùng chương trình Master Node
+Bước 2 – 5: xử lý dữ liệu và huấn luyện trên máy tính (Python: pandas, scikit-learn)
+Bước 6: chuyển đổi mô hình và triển khai xuống vi điều khiển ESP32 (Master Node)
+Nhiệt độ (°C)
+Độ ẩm (%RH)
+Ánh sáng (nghìn lux)
+Thời gian (ngày/tháng/2026) – giá trị trung bình 30 phút
